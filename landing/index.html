@@ -84,6 +84,24 @@
 
   footer { padding: 34px 0 60px; color: var(--muted); font-size: 13px; text-align: center; }
   footer a { color: var(--muted); }
+
+  /* ----- 로그인 ----- */
+  .hidden { display: none; }
+  #loginForm { display: flex; gap: 8px; flex-wrap: wrap; }
+  .field {
+    flex: 1 1 200px; padding: 11px 13px; border-radius: 9px; font-size: 15px;
+    background: var(--bg); color: var(--paper); border: 1px solid var(--line);
+  }
+  .field:focus { outline: none; border-color: var(--accent); }
+  .msg { font-size: 13px; color: var(--muted); margin: 12px 0 0; min-height: 18px; }
+  .msg.err { color: #e0776a; }
+  .msg.ok { color: var(--accent-soft); }
+  .ticket { margin-top: 4px; padding: 14px; border-radius: 10px; background: rgba(0,0,0,.3); border: 1px dashed var(--line); }
+  .ticket .label { font-size: 12px; color: var(--muted); }
+  .ticket code { display: block; margin-top: 6px; font-size: 13px; word-break: break-all; color: var(--accent-soft); font-family: Consolas, monospace; }
+  .ticket .expire { font-size: 12px; color: var(--muted); margin-top: 8px; }
+  button.btn { cursor: pointer; font-family: inherit; }
+  button.btn[disabled] { opacity: .55; cursor: not-allowed; }
 </style>
 </head>
 <body>
@@ -94,12 +112,45 @@
     <p class="tagline">두 발로 걷는 고양이들이 사는 <b>항구 마을</b></p>
     <p class="sub">다락방을 꾸미고, 이웃집 벽에 쪽지를 남기고, 캣닢을 나눠 주며 지냅니다.</p>
     <div class="cta">
-      <a class="btn primary disabled" href="#status">테스터 모집 준비 중</a>
+      <a class="btn primary" href="#play">지금 시작하기</a>
       <a class="btn" href="https://github.com/NohDoyeon/myohang" target="_blank" rel="noopener">GitHub 저장소</a>
     </div>
-    <p class="note">지금은 비공개 테스트를 준비하는 중입니다. 클라이언트 내려받기는 곧 열립니다.</p>
+    <p class="note">클라이언트를 내려받아 실행한 뒤, 아래에서 받은 코드로 입장합니다.</p>
   </div>
 </header>
+
+<section id="play">
+  <div class="wrap">
+    <h2>입장하기</h2>
+    <p class="lead">처음 쓰는 닉네임이면 그대로 계정이 만들어집니다. 비밀번호는 게임 서버로 넘어가지 않아요.</p>
+
+    <div class="card" id="loginCard">
+      <form id="loginForm" autocomplete="on">
+        <input class="field" id="nick" name="username" placeholder="닉네임 (16자까지)" maxlength="16" autocomplete="username" required>
+        <input class="field" id="password" name="password" type="password" placeholder="비밀번호 (4자 이상)" minlength="4" maxlength="64" autocomplete="current-password" required>
+        <button class="btn primary" id="loginBtn" type="submit">입장권 받기</button>
+      </form>
+      <p class="msg" id="loginMsg"></p>
+    </div>
+
+    <div class="card hidden" id="playCard">
+      <p id="welcome" style="margin:0 0 10px;font-weight:700"></p>
+      <p class="lead" style="margin:0 0 14px">아래 코드를 복사해 게임 시작 화면의 <b>비밀번호 칸</b>에 붙여넣으세요. 주소가 함께 들어 있어 그대로 접속됩니다.</p>
+      <div class="ticket">
+        <div class="label">입장권 (5분 뒤 만료)</div>
+        <code id="ticketCode">-</code>
+        <div class="expire" id="ticketExpire"></div>
+      </div>
+      <div class="cta" style="justify-content:flex-start;margin-top:14px">
+        <button class="btn primary" id="copyBtn">코드 복사</button>
+        <button class="btn" id="startBtn">게임 바로 열기</button>
+        <button class="btn" id="logoutBtn">다른 계정으로</button>
+      </div>
+      <p class="msg" id="playMsg"></p>
+      <p class="note" style="margin-top:14px">‘게임 바로 열기’는 <code style="display:inline">harbor://</code> 가 등록된 PC에서만 동작합니다. 안 열리면 코드를 붙여넣으세요.</p>
+    </div>
+  </div>
+</section>
 
 <section>
   <div class="wrap">
@@ -182,6 +233,84 @@
     <p>원작 IP의 명칭·로고·캐릭터·에셋·프로토콜은 일절 사용하지 않습니다.</p>
   </div>
 </footer>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let connect = null, expiresAt = 0, countdown = null;
+
+$('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = $('loginMsg');
+  msg.className = 'msg'; msg.textContent = '확인 중…';
+  $('loginBtn').disabled = true;
+
+  try {
+    const r = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nick: $('nick').value.trim(), password: $('password').value }),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok || !data.ok) {
+      msg.className = 'msg err';
+      msg.textContent = data.reason || '로그인하지 못했어요.';
+      return;
+    }
+    connect = data.connect;
+    expiresAt = Date.now() + (data.expiresInSeconds || 300) * 1000;
+    $('welcome').textContent = data.created ? `${data.nick}님, 처음 오셨네요` : `${data.nick}님, 다시 오셨네요`;
+    $('ticketCode').textContent = connect;
+    $('loginCard').classList.add('hidden');
+    $('playCard').classList.remove('hidden');
+    $('password').value = '';
+    tick();
+    countdown = setInterval(tick, 1000);
+  } catch {
+    msg.className = 'msg err';
+    msg.textContent = '서버에 연결하지 못했어요.';
+  } finally {
+    $('loginBtn').disabled = false;
+  }
+});
+
+function tick() {
+  const left = Math.max(0, Math.round((expiresAt - Date.now()) / 1000));
+  $('ticketExpire').textContent = left > 0
+    ? `${Math.floor(left / 60)}분 ${String(left % 60).padStart(2, '0')}초 뒤 만료됩니다.`
+    : '만료되었습니다. 다시 로그인해 주세요.';
+  if (left <= 0) clearInterval(countdown);
+}
+
+$('copyBtn').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(connect || '');
+    $('playMsg').className = 'msg ok';
+    $('playMsg').textContent = '복사했어요. 게임 시작 화면의 비밀번호 칸에 붙여넣으세요.';
+  } catch {
+    $('playMsg').className = 'msg err';
+    $('playMsg').textContent = '복사에 실패했어요. 코드를 직접 선택해 복사해 주세요.';
+  }
+});
+
+// harbor:// 가 등록돼 있으면 클라이언트가 열린다. 없으면 아무 일도 일어나지 않으므로 안내를 남긴다.
+$('startBtn').addEventListener('click', () => {
+  if (!connect) return;
+  $('playMsg').className = 'msg ok';
+  $('playMsg').textContent = '클라이언트를 여는 중…';
+  window.location.href = 'harbor://' + connect;
+  setTimeout(() => {
+    $('playMsg').className = 'msg';
+    $('playMsg').textContent = '창이 열리지 않았다면 코드를 복사해 게임에 붙여넣으세요.';
+  }, 2500);
+});
+
+$('logoutBtn').addEventListener('click', () => {
+  connect = null; clearInterval(countdown);
+  $('playCard').classList.add('hidden');
+  $('loginCard').classList.remove('hidden');
+  $('loginMsg').textContent = '';
+});
+</script>
 
 </body>
 </html>

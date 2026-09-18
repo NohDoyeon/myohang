@@ -174,11 +174,14 @@ public partial class RoomView : Node2D
         return (authority.Length > 0 ? authority : null, 0, ticket);
     }
 
-    /// <summary>입장권으로 보이는가 — 40자리 hex 코드(주소가 앞에 붙어 있어도 된다).</summary>
+    /// <summary>
+    /// 입장권으로 보이는가. 두 종류를 받는다 —
+    /// 게임 서버가 직접 준 **40자리 hex**, 그리고 웹이 서명해 준 **`t1.…`**(주소가 앞에 붙어 있어도 된다).
+    /// </summary>
     public static bool LooksLikeTicket(string raw)
     {
         var t = ParseConnect(raw).Ticket;
-        return t.Length >= 32 && t.All(Uri.IsHexDigit);
+        return t.StartsWith("t1.", StringComparison.Ordinal) || (t.Length >= 32 && t.All(Uri.IsHexDigit));
     }
 
     /// <summary>환경변수·실행 인자로 서버 주소를 덮어쓴다(웹을 거치지 않고 바로 띄울 때).</summary>

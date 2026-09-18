@@ -1,0 +1,10 @@
+{
+  "name": "myohang-landing",
+  "private": true,
+  "version": "1.0.0",
+  "description": "묘항 소개 페이지 + 로그인 API (Vercel). 정적 HTML + api/ 서버리스 함수.",
+  "type": "module",
+  "dependencies": {
+    "pg": "^8.13.1"
+  }
+}

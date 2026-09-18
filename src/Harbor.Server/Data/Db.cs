@@ -147,11 +147,24 @@ public static class Db
             CREATE INDEX IF NOT EXISTS idx_currency_log_nick ON currency_log(nick_key, id);
             """);
 
+        AddMissingColumns(conn);
+
         if (conn.ExecuteScalar<int>("SELECT COUNT(*) FROM schema_info") == 0)
             conn.Execute("INSERT INTO schema_info(version) VALUES (@v)", new { v = SchemaVersion });
 
         LockDownForDataApi(conn);
     }
+
+    /// <summary>
+    /// **`CREATE TABLE IF NOT EXISTS` 는 이미 있는 테이블에 컬럼을 더해 주지 않는다.**
+    /// 위 정의에 컬럼을 추가해 놓고 이걸 빠뜨리면, 이미 DB 가 만들어진 환경에서만 조용히 터진다
+    /// (새로 만든 DB 에서는 멀쩡하므로 더 늦게 발견된다). 컬럼을 늘릴 때마다 여기에도 한 줄 추가할 것.
+    /// `ADD COLUMN IF NOT EXISTS` 라 여러 번 실행해도 안전하다.
+    /// </summary>
+    private static void AddMissingColumns(NpgsqlConnection conn) => conn.Execute("""
+        ALTER TABLE account ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'user';
+        ALTER TABLE player  ADD COLUMN IF NOT EXISTS fame INTEGER NOT NULL DEFAULT 0;
+        """);
 
     /// <summary>
     /// **Supabase 안전장치.** Supabase 는 `public` 스키마의 테이블을 REST API(Data API)로 자동 노출하고,

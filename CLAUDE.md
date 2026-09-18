@@ -52,6 +52,8 @@
 
 ## 아키텍처 불변식 (어기면 조용히 깨진다)
 
+- **스키마에 컬럼을 추가하면 `Db.AddMissingColumns` 에도 한 줄 넣는다.** `CREATE TABLE IF NOT EXISTS` 는 이미 있는
+  테이블에 컬럼을 더해 주지 않아서, **새 DB 에서는 멀쩡하고 기존 DB 에서만 터진다**(서버가 기동 중 죽는다).
 - **데이터 소유권**: `account`·`notice`·`login_log` = **웹**, `player`·`inventory`·`room`·`room_item`·`currency_log` = **게임 서버**.
   가입은 웹에서만(테스트 중에는 `Server:AllowGameSignup` 으로 열어 둠 — 공개 전 false).
 - **방 저장 키는 `u:{닉}`** 으로 템플릿과 무관하다. 넓히기·이사에서 **옛 인스턴스를 먼저 닫지 않으면** 새 방 기록을 덮어쓴다.

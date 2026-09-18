@@ -70,8 +70,7 @@ public partial class FurniSprite : Node2D
         State = state;
         if (extra is not null) Body = extra;
         if (usable is { } u) Usable = u;
-        string key = $"{FurniId}_{Dir}_{state}_0";
-        var tex = AssetCatalog.TryGet(key);
+        var tex = PickTexture(FurniId, Dir, state);
         _placeholder = tex is null;
         Sprite.Texture = tex;
         NameLabel.Visible = _placeholder;
@@ -79,6 +78,16 @@ public partial class FurniSprite : Node2D
         _stateLabel.Visible = _placeholder && !IsGhost && _stateLabel.Text.Length > 0;
         QueueRedraw();
     }
+
+    /// <summary>
+    /// 그림을 **한 장씩** 채워 넣을 수 있게 넓게 대체한다. 아바타(`AvatarView.PickTexture`)와 같은 이유다 —
+    /// 방향 하나, 상태 하나가 없다고 가구가 통째로 placeholder 로 떨어지면 아트를 조금씩 넣는 작업 자체가 불가능하다.
+    /// 순서: 그 방향+그 상태 → 그 방향+기본 → **dir 0**+그 상태 → dir 0+기본.
+    /// </summary>
+    private static Texture2D? PickTexture(string furniId, byte dir, string state)
+        => AssetCatalog.TryGet($"{furniId}_{dir}_{state}_0")
+        ?? AssetCatalog.TryGet($"{furniId}_{dir}_default_0")
+        ?? (dir == 0 ? null : AssetCatalog.TryGet($"{furniId}_0_{state}_0") ?? AssetCatalog.TryGet($"{furniId}_0_default_0"));
 
     public void SetDir(byte dir) { Dir = dir; SetState(State); }
 

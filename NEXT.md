@@ -40,6 +40,15 @@
 - [ ] Supabase 에서 `SELECT * FROM gift_log ORDER BY id DESC LIMIT 5;` 로 기록이 쌓였는지
 - [ ] 상점 목록에 **캣닢 잎이 안 보이는지**(0루피 구매 구멍을 막았음).
 
+### 나중에 할 것 — 공간 확장 (2026-09-18 요청)
+- **바닥·벽 색 바꾸기** ⭐ 먼저 — `RoomDto.WallStyle`/`FloorStyle` 은 **이미 오고 있다**(벽은 색이 적용 중, 바닥은 클라가 무시).
+  방마다 저장되게만 하면 된다: `room` 테이블에 컬럼 2개(⚠ `Db.AddMissingColumns` 에도 추가) + 꾸미기 UI + 서버 검증(허용 목록).
+- **마트(상점 방)** — 지금 상점은 HUD 창 하나다. 공용 방에 **진열대 가구**(`interaction: "shop"`, 파는 상품을 `extra` 에)를 놓고
+  클릭하면 기존 `C_BuyCatalog` 를 부르면 된다. 기획전 = 방 JSON 의 진열 목록 교체.
+- **게임방 + 오목** — 프로토콜 자리가 이미 비어 있다(`C_MinigameJoin` `C_MinigameInput` `S_MinigameEvent`).
+  승패 판정은 `Lottery`·`Trade` 처럼 **Harbor.Core 의 순수 함수**로 짜고 단위 테스트로 굳힌다. 채팅이 이미 방 단위라 관전·대화가 공짜로 따라온다.
+- 레퍼런스 요청 프롬프트는 `art/ref/sprite-prompt.md` §3-1 에 준비돼 있다.
+
 ### 나중에 할 것 — 조작 편의 (2026-09-18 요청)
 - **키보드 이동**: WASD / 화살표로 걷기. 지금은 좌클릭 이동만이다.
   구현은 크지 않다 — 누른 방향의 **인접 타일로 `C_Move` 를 보내면** 기존 경로·충돌 판정을 그대로 탄다

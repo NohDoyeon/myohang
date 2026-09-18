@@ -1,0 +1,20 @@
+# 줄바꿈 정책.
+# Windows 에서 클론하면 git 이 기본적으로 CRLF 로 체크아웃하는데, 그러면 Git Bash 가 실행하는 .sh 가
+# 줄 끝의 \r 때문에 깨진다("$'\r': command not found"). 셸 스크립트만은 항상 LF 로 고정한다.
+
+* text=auto
+
+*.sh   text eol=lf
+*.bat  text eol=crlf
+*.ps1  text eol=crlf
+
+# 바이너리 — git 이 줄바꿈을 건드리면 안 된다
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.webp binary
+*.pck  binary
+*.dll  binary
+*.exe  binary
+*.ttf  binary
+*.otf  binary

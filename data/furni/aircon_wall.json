@@ -1,0 +1,20 @@
+{
+  "furniId": "aircon_wall",
+  "displayName": "벽걸이 에어컨",
+  "category": "appliance",
+  "footprint": { "w": 1, "h": 1 },
+  "height": 0.5,
+  "flags": ["wall"],
+  "rotations": [2, 4],
+  "sprite": "furni/appliance/aircon_wall",
+  "states": ["off", "on"],
+  "interaction": {
+    "type": "fsm",
+    "initial": "off",
+    "transitions": [
+      { "from": "off", "on": "use", "to": "on" },
+      { "from": "on", "on": "use", "to": "off" }
+    ]
+  },
+  "price": { "currency": "rupee", "amount": 500 }
+}

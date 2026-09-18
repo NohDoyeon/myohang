@@ -1,0 +1,22 @@
+{
+  "roomId": "deck_main",
+  "name": "부둣가 광장",
+  "kind": "public",
+  "heightmap": [
+    "xxxxxxxxxxxxxxxxxxxx",
+    "x000000000000000000x",
+    "x000000000000000000x",
+    "x000011111111000000x",
+    "x000011111111000000x",
+    "x000011111111000000x",
+    "x000000000000000000x",
+    "x000000000000000000x",
+    "x000000000000000000x",
+    "xxxxxxxxx00xxxxxxxxx"
+  ],
+  "door": { "x": 9, "y": 9, "dir": 0 },
+  "wall": { "style": "wall_ship_rail", "height": 1 },
+  "floor": { "style": "floor_deck_wood" },
+  "spawn": [ { "x": 9, "y": 8, "dir": 0 }, { "x": 10, "y": 8, "dir": 0 } ],
+  "maxUsers": 60
+}

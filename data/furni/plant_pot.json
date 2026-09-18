@@ -1,0 +1,13 @@
+{
+  "furniId": "plant_pot",
+  "displayName": "화분",
+  "category": "deco",
+  "footprint": { "w": 1, "h": 1 },
+  "height": 1.2,
+  "flags": ["solid"],
+  "rotations": [0],
+  "sprite": "furni/deco/plant_pot",
+  "states": ["default"],
+  "interaction": { "type": "none" },
+  "price": { "currency": "rupee", "amount": 150 }
+}

@@ -1,0 +1,13 @@
+{
+  "furniId": "table_round",
+  "displayName": "원형 탁자",
+  "category": "table",
+  "footprint": { "w": 1, "h": 1 },
+  "height": 1.0,
+  "flags": ["solid"],
+  "rotations": [0],
+  "sprite": "furni/table/table_round",
+  "states": ["default"],
+  "interaction": { "type": "none" },
+  "price": { "currency": "rupee", "amount": 180 }
+}

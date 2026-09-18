@@ -1,0 +1,25 @@
+{
+  "roomId": "loft_01",
+  "name": "복층방",
+  "kind": "private",
+  "_note": "복층 계열 1단계. 뒤쪽 세 줄(y1~3)이 한 단 높다. 높이차 1 은 걸어서 오르내린다(AStar 는 1.1 까지 허용). 단계가 올라가도 y1~3 은 계속 '1' 이어야 한다 — 높이가 달라지면 그 위에 놓인 가구가 어긋난다.",
+  "heightmap": [
+    "xxxxxxxxxxxx",
+    "x1111111111x",
+    "x1111111111x",
+    "x1111111111x",
+    "x0000000000x",
+    "x0000000000x",
+    "x0000000000x",
+    "xxxxx0xxxxxx"
+  ],
+  "door": { "x": 5, "y": 7, "dir": 0 },
+  "wall": { "style": "wall_wood_01", "height": 3 },
+  "floor": { "style": "floor_carpet_moss" },
+  "spawn": [ { "x": 5, "y": 6, "dir": 4 } ],
+  "maxUsers": 25,
+  "family": "loft",
+  "tier": 1,
+  "upgrade": "loft_02",
+  "upgradePrice": 1000
+}

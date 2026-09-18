@@ -1,0 +1,12 @@
+<Project Sdk="Godot.NET.Sdk/4.7.2">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\src\Harbor.Core\Harbor.Core.csproj" />
+    <ProjectReference Include="..\src\Harbor.Protocol\Harbor.Protocol.csproj" />
+  </ItemGroup>
+</Project>

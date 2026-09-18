@@ -1,0 +1,29 @@
+{
+  "roomId": "cabin_grand_03",
+  "name": "큰 다락방",
+  "kind": "private",
+  "_note": "cabin_wide_02 를 그대로 품는다 (x1~14, y1~8, 문 8,9).",
+  "heightmap": [
+    "xxxxxxxxxxxxxxxxxxxx",
+    "x000000000000000000x",
+    "x000000000000000000x",
+    "x000011100000000000x",
+    "x000011100000000000x",
+    "x000000000000000000x",
+    "x000000000000000000x",
+    "x000000000000000000x",
+    "x000000000000000000x",
+    "x000000000000000000x",
+    "x000000000000000000x",
+    "xxxxxxxxxx00xxxxxxxx"
+  ],
+  "door": { "x": 10, "y": 11, "dir": 0 },
+  "wall": { "style": "wall_wood_01", "height": 3 },
+  "floor": { "style": "floor_carpet_blue" },
+  "spawn": [ { "x": 10, "y": 10, "dir": 4 } ],
+  "maxUsers": 40,
+  "family": "cabin",
+  "tier": 3,
+  "upgrade": "cabin_manor_04",
+  "upgradePrice": 8000
+}

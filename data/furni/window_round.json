@@ -1,0 +1,13 @@
+{
+  "furniId": "window_round",
+  "displayName": "둥근 창문",
+  "category": "wallart",
+  "footprint": { "w": 1, "h": 1 },
+  "height": 0.6,
+  "flags": ["wall"],
+  "rotations": [2, 4],
+  "sprite": "furni/wallart/window_round",
+  "states": ["default"],
+  "interaction": { "type": "none" },
+  "price": { "currency": "rupee", "amount": 260 }
+}

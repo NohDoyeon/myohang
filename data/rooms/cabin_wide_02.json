@@ -1,0 +1,27 @@
+{
+  "roomId": "cabin_wide_02",
+  "name": "넓은 다락방",
+  "kind": "private",
+  "_note": "cabin_default_01 의 걸을 수 있는 칸(x1~10, y1~6, 문 6,7)과 단상(5~7, 3~4)을 그대로 품는다. 그래야 넓힐 때 가구가 제자리에 남는다.",
+  "heightmap": [
+    "xxxxxxxxxxxxxxxx",
+    "x00000000000000x",
+    "x00000000000000x",
+    "x00001110000000x",
+    "x00001110000000x",
+    "x00000000000000x",
+    "x00000000000000x",
+    "x00000000000000x",
+    "x00000000000000x",
+    "xxxxxxxx00xxxxxx"
+  ],
+  "door": { "x": 8, "y": 9, "dir": 0 },
+  "wall": { "style": "wall_wood_01", "height": 3 },
+  "floor": { "style": "floor_carpet_blue" },
+  "spawn": [ { "x": 8, "y": 8, "dir": 4 } ],
+  "maxUsers": 30,
+  "family": "cabin",
+  "tier": 2,
+  "upgrade": "cabin_grand_03",
+  "upgradePrice": 2500
+}

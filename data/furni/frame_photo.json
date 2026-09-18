@@ -1,0 +1,13 @@
+{
+  "furniId": "frame_photo",
+  "displayName": "사진 액자",
+  "category": "wallart",
+  "footprint": { "w": 1, "h": 1 },
+  "height": 0.4,
+  "flags": ["wall"],
+  "rotations": [2, 4],
+  "sprite": "furni/wallart/frame_photo",
+  "states": ["default"],
+  "interaction": { "type": "none" },
+  "price": { "currency": "rupee", "amount": 120 }
+}

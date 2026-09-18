@@ -1,0 +1,40 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="묘항 (Myohang)"
+run/main_scene="res://Main.tscn"
+config/features=PackedStringArray("4.7", "C#")
+
+[autoload]
+
+NetClient="*res://scripts/NetClient.cs"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+
+[dotnet]
+
+project/assembly_name="HarborClient"
+
+[gui]
+
+theme/custom="res://ui/theme.tres"
+
+[rendering]
+
+; 0 = Nearest. 도트가 뭉개지지 않게.
+textures/canvas_textures/default_texture_filter=0
+; 걷는 중엔 위치가 소수점으로 보간된다. 스냅을 켜야 픽셀이 반 칸에 걸쳐 찢어지지 않는다.
+2d/snap/snap_2d_transforms_to_pixel=true
+2d/snap/snap_2d_vertices_to_pixel=true

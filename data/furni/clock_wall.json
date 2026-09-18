@@ -1,0 +1,13 @@
+{
+  "furniId": "clock_wall",
+  "displayName": "벽시계",
+  "category": "wallart",
+  "footprint": { "w": 1, "h": 1 },
+  "height": 0.35,
+  "flags": ["wall"],
+  "rotations": [2, 4],
+  "sprite": "furni/wallart/clock_wall",
+  "states": ["default"],
+  "interaction": { "type": "none" },
+  "price": { "currency": "rupee", "amount": 140 }
+}

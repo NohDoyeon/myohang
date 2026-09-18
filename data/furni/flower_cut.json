@@ -1,0 +1,15 @@
+{
+  "furniId": "flower_cut",
+  "displayName": "캣닢 잎",
+  "category": "harvest",
+  "footprint": { "w": 1, "h": 1 },
+  "height": 0.3,
+  "flags": [],
+  "rotations": [0],
+  "sprite": "furni/harvest/catnip_leaf",
+  "states": ["default"],
+  "interaction": { "type": "none" },
+  "price": { "currency": "rupee", "amount": 0 },
+  "sell": { "price": 40, "bundleQty": 30, "bundlePrice": 1500 },
+  "_note": "수확물. 상점엔 안 뜨고(price 0) 가방에서 판다. 30장 묶으면 낱개(1200)보다 300 이득."
+}

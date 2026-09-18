@@ -1,0 +1,13 @@
+{
+  "furniId": "postit_pink",
+  "displayName": "분홍 포스트잇",
+  "category": "postit",
+  "footprint": { "w": 1, "h": 1 },
+  "height": 0.3,
+  "flags": ["wall"],
+  "rotations": [2, 4],
+  "sprite": "furni/postit/postit_pink",
+  "states": ["blank", "written"],
+  "interaction": { "type": "postit" },
+  "price": { "currency": "rupee", "amount": 10 }
+}

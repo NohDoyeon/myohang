@@ -1,0 +1,13 @@
+{
+  "furniId": "rug_round",
+  "displayName": "동그란 러그",
+  "category": "deco",
+  "footprint": { "w": 1, "h": 1 },
+  "height": 0.05,
+  "flags": [],
+  "rotations": [0],
+  "sprite": "furni/deco/rug_round",
+  "states": ["default"],
+  "interaction": { "type": "none" },
+  "price": { "currency": "rupee", "amount": 90 }
+}

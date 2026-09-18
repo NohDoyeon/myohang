@@ -1,0 +1,24 @@
+{
+  "roomId": "cabin_default_01",
+  "name": "다락방",
+  "kind": "private",
+  "heightmap": [
+    "xxxxxxxxxxxx",
+    "x0000000000x",
+    "x0000000000x",
+    "x0000111000x",
+    "x0000111000x",
+    "x0000000000x",
+    "x0000000000x",
+    "xxxxxx0xxxxx"
+  ],
+  "door": { "x": 6, "y": 7, "dir": 0 },
+  "wall": { "style": "wall_wood_01", "height": 3 },
+  "floor": { "style": "floor_carpet_blue" },
+  "spawn": [ { "x": 6, "y": 6, "dir": 4 } ],
+  "maxUsers": 25,
+  "family": "cabin",
+  "tier": 1,
+  "upgrade": "cabin_wide_02",
+  "upgradePrice": 800
+}

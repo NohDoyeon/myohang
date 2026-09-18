@@ -1,0 +1,42 @@
+bin/
+obj/
+.vs/
+.godot/
+art/out/
+*.user
+
+# ───── 비밀정보 — 하나라도 올라가면 저장소를 비공개로 돌려도 히스토리에 남는다 ─────
+# DB 접속 문자열, 입장권 서명 키, 배포 토큰 따위. 값은 전부 환경변수나 secrets/ 에 둔다.
+.env
+.env.*
+!.env.example
+secrets/
+appsettings.Local.json
+appsettings.*.Local.json
+appsettings.Development.json
+appsettings.Production.json
+*.pem
+*.key
+*.pfx
+*.p12
+*.crt
+.vercel/
+.netlify/
+
+# 저장소 — 계정 비밀번호 해시·소금과 테스터 데이터가 들어 있다. 절대 커밋하지 않는다.
+saves/
+*.db
+*.db-wal
+*.db-shm
+*.db.bad-*
+*.json.imported
+backup/
+
+# 검증하며 나오는 로그·부산물 — 이름이 매번 달라지므로 확장자로 막는다
+*.log
+*.log.u8
+*.sln.bak
+
+# 클라이언트 빌드 산출물 (배포는 릴리스로)
+export/
+*.zip

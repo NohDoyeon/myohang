@@ -1,0 +1,28 @@
+{
+  "roomId": "loft_03",
+  "name": "큰 복층방",
+  "kind": "private",
+  "_note": "복층 계열 최종. loft_02 를 그대로 품는다 (x1~14, y1~9, 문 7,10). 위층 y1~3 고정.",
+  "heightmap": [
+    "xxxxxxxxxxxxxxxxxxxx",
+    "x111111111111111111x",
+    "x111111111111111111x",
+    "x111111111111111111x",
+    "x000000000000000000x",
+    "x000000000000000000x",
+    "x000000000000000000x",
+    "x000000000000000000x",
+    "x000000000000000000x",
+    "x000000000000000000x",
+    "x000000000000000000x",
+    "x000000000000000000x",
+    "xxxxxxxxx0xxxxxxxxxx"
+  ],
+  "door": { "x": 9, "y": 12, "dir": 0 },
+  "wall": { "style": "wall_wood_01", "height": 3 },
+  "floor": { "style": "floor_carpet_moss" },
+  "spawn": [ { "x": 9, "y": 11, "dir": 4 } ],
+  "maxUsers": 40,
+  "family": "loft",
+  "tier": 3
+}

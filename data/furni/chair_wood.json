@@ -1,0 +1,13 @@
+{
+  "furniId": "chair_wood",
+  "displayName": "나무 의자",
+  "category": "seating",
+  "footprint": { "w": 1, "h": 1 },
+  "height": 1.0,
+  "flags": ["rotatable"],
+  "rotations": [0, 2, 4, 6],
+  "sprite": "furni/seating/chair_wood",
+  "states": ["default"],
+  "interaction": { "type": "seat" },
+  "price": { "currency": "rupee", "amount": 120 }
+}

@@ -1,0 +1,28 @@
+{
+  "roomId": "corner_03",
+  "name": "큰 모퉁이집",
+  "kind": "private",
+  "_note": "ㄱ자 계열 최종. corner_02 를 그대로 품는다 (날개 x4~14 × y1~2, 아래채 x1~14 × y3~9, 문 7,10).",
+  "heightmap": [
+    "xxxxxxxxxxxxxxxxxxxx",
+    "xxxx000000000000000x",
+    "xxxx000000000000000x",
+    "x000000000000000000x",
+    "x000000000000000000x",
+    "x000000000000000000x",
+    "x000000000000000000x",
+    "x000000000000000000x",
+    "x000000000000000000x",
+    "x000000000000000000x",
+    "x000000000000000000x",
+    "x000000000000000000x",
+    "xxxxxxxxx0xxxxxxxxxx"
+  ],
+  "door": { "x": 9, "y": 12, "dir": 0 },
+  "wall": { "style": "wall_wood_01", "height": 3 },
+  "floor": { "style": "floor_plank_warm" },
+  "spawn": [ { "x": 9, "y": 11, "dir": 4 } ],
+  "maxUsers": 40,
+  "family": "corner",
+  "tier": 3
+}

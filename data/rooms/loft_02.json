@@ -1,0 +1,28 @@
+{
+  "roomId": "loft_02",
+  "name": "넓은 복층방",
+  "kind": "private",
+  "_note": "loft_01 을 그대로 품는다 (x1~10, y1~6, 문 5,7). 위층(y1~3)은 옆으로만 넓어진다 — 줄 수가 늘면 예전 위층 가구가 아래층이 된다.",
+  "heightmap": [
+    "xxxxxxxxxxxxxxxx",
+    "x11111111111111x",
+    "x11111111111111x",
+    "x11111111111111x",
+    "x00000000000000x",
+    "x00000000000000x",
+    "x00000000000000x",
+    "x00000000000000x",
+    "x00000000000000x",
+    "x00000000000000x",
+    "xxxxxxx0xxxxxxxx"
+  ],
+  "door": { "x": 7, "y": 10, "dir": 0 },
+  "wall": { "style": "wall_wood_01", "height": 3 },
+  "floor": { "style": "floor_carpet_moss" },
+  "spawn": [ { "x": 7, "y": 9, "dir": 4 } ],
+  "maxUsers": 30,
+  "family": "loft",
+  "tier": 2,
+  "upgrade": "loft_03",
+  "upgradePrice": 3000
+}

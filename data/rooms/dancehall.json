@@ -1,0 +1,30 @@
+{
+  "roomId": "dancehall",
+  "name": "댄스홀",
+  "kind": "public",
+  "heightmap": [
+    "xxxxxxxxxxxxxxxx",
+    "x00000000000000x",
+    "x01111111111100x",
+    "x01111111111100x",
+    "x01111111111100x",
+    "x01111111111100x",
+    "x00000000000000x",
+    "x00000000000000x",
+    "xxxxxxx00xxxxxxx"
+  ],
+  "door": { "x": 7, "y": 8, "dir": 0 },
+  "wall": { "style": "wall_ship_rail", "height": 3 },
+  "floor": { "style": "floor_disco" },
+  "spawn": [ { "x": 7, "y": 7, "dir": 0 }, { "x": 8, "y": 7, "dir": 0 } ],
+  "maxUsers": 60,
+  "furni": [
+    { "furniId": "cola_machine", "x": 2, "y": 6, "dir": 2 },
+    { "furniId": "cola_machine", "x": 13, "y": 6, "dir": 4 },
+    { "furniId": "lamp_floor", "x": 1, "y": 1, "dir": 0 },
+    { "furniId": "lamp_floor", "x": 14, "y": 1, "dir": 0 },
+    { "furniId": "clock_wall", "x": 1, "y": 1, "dir": 2, "wallU": 0, "wallV": 2 },
+    { "furniId": "window_round", "x": 5, "y": 1, "dir": 4, "wallU": 0, "wallV": 1 },
+    { "furniId": "window_round", "x": 9, "y": 1, "dir": 4, "wallU": 1, "wallV": 1 }
+  ]
+}

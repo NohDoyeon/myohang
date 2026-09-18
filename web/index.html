@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>묘항 — 고양이들의 항구 마을</title>
+<style>
+  :root {
+    --ink: #1a141c;
+    --paper: #faf6ec;
+    --muted: #8c7686;
+    --line: #5c4c60;
+    --accent: #e6b432;
+    --accent-soft: #fae68c;
+    --sea: #58789f;
+    --leaf: #649658;
+    --danger: #dc5448;
+    --panel: #221a24;
+    --panel-2: #2c2230;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--ink);
+    color: var(--paper);
+    font-family: "Malgun Gothic", "맑은 고딕", "Noto Sans KR", system-ui, sans-serif;
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+
+  /* 밤 항구 그림을 화면에 깔고, 그 위에 어두운 막을 씌워 글자를 읽히게 한다.
+     도트 그림이므로 확대될 때 뭉개지지 않도록 pixelated 로 그린다. */
+  .bg {
+    position: fixed; inset: 0; z-index: -2;
+    background: url("bg.png") center / cover no-repeat;
+    image-rendering: pixelated;
+  }
+  /* 좁은 화면용 축소판(bg-small.png)은 쓰지 않는다 — 24비트라 오히려 원본(128색)보다 무겁다.
+     정말 필요해지면 축소판도 색을 줄여서 다시 만들 것. */
+  .scrim {
+    position: fixed; inset: 0; z-index: -1;
+    background:
+      /* 위→아래 기본 어둠막 */
+      linear-gradient(180deg, rgba(26,20,28,.80) 0%, rgba(26,20,28,.50) 32%, rgba(26,20,28,.84) 78%, var(--ink) 100%),
+      /* 달이 오른쪽 위에 있어 그쪽만 더 밝다. 제목 글자가 달을 가로질러도 읽히도록 오른쪽을 더 덮는다. */
+      radial-gradient(1000px 420px at 78% 0%, rgba(26,20,28,.55), transparent 72%),
+      /* 달빛이 은은하게 도는 느낌만 남긴다 */
+      radial-gradient(900px 500px at 50% 8%, rgba(250,230,140,.08), transparent 70%);
+  }
+
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 16px 64px; position: relative; }
+
+  header { text-align: center; padding: 92px 0 28px; }
+  h1 {
+    font-size: 72px; margin: 0; letter-spacing: 8px; color: var(--accent);
+    text-shadow: 0 3px 0 #8a6a16, 0 0 34px rgba(230,180,50,.45), 0 6px 22px rgba(0,0,0,.75);
+  }
+  .tagline { color: var(--paper); opacity: .92; margin-top: 8px; font-size: 18px; text-shadow: 0 2px 10px rgba(0,0,0,.8); }
+  .sub { color: #c9bcc6; font-size: 13px; margin-top: 10px; text-shadow: 0 2px 8px rgba(0,0,0,.8); }
+
+  .status {
+    display: inline-flex; gap: 18px; align-items: center; margin-top: 18px;
+    background: rgba(0,0,0,.35); border: 1px solid var(--line); border-radius: 999px;
+    padding: 8px 18px; font-size: 13px; color: var(--muted);
+  }
+  .status b { color: var(--accent-soft); font-weight: 600; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--leaf); display: inline-block; }
+  .dot.off { background: var(--danger); }
+
+  .card {
+    background: rgba(28,22,30,.86); border: 1px solid var(--line); border-radius: 16px;
+    padding: 28px; margin: 28px auto 0; max-width: 460px;
+    box-shadow: 0 18px 60px rgba(0,0,0,.65);
+    backdrop-filter: blur(3px);
+  }
+  .card h2 { margin: 0 0 4px; font-size: 20px; color: var(--accent-soft); }
+  .card .hint { color: var(--muted); font-size: 13px; margin: 0 0 18px; }
+
+  label { display: block; font-size: 13px; color: var(--muted); margin: 14px 0 6px; }
+  input {
+    width: 100%; padding: 12px 14px; font-size: 15px; font-family: inherit;
+    background: rgba(0,0,0,.35); color: var(--paper);
+    border: 1px solid var(--line); border-radius: 10px; outline: none;
+  }
+  input:focus { border-color: var(--accent); background: rgba(0,0,0,.45); }
+  input::placeholder { color: #6b5a68; }
+
+  button {
+    width: 100%; margin-top: 20px; padding: 13px 16px; font-size: 16px; font-family: inherit;
+    font-weight: 600; cursor: pointer; border: none; border-radius: 10px;
+    background: var(--accent); color: var(--ink); transition: filter .12s, transform .06s;
+  }
+  button:hover { filter: brightness(1.08); }
+  button:active { transform: translateY(1px); }
+  button:disabled { opacity: .5; cursor: default; }
+  button.ghost { background: var(--panel-2); color: var(--paper); border: 1px solid var(--line); }
+
+  .msg { margin-top: 14px; font-size: 13px; min-height: 19px; }
+  .msg.err { color: var(--danger); }
+  .msg.ok { color: var(--accent-soft); }
+
+  .ticket {
+    margin-top: 16px; padding: 14px; border-radius: 10px;
+    background: rgba(0,0,0,.35); border: 1px dashed var(--line);
+  }
+  .ticket .label { font-size: 12px; color: var(--muted); }
+  .ticket code {
+    display: block; margin-top: 6px; font-size: 13px; word-break: break-all;
+    color: var(--accent-soft); font-family: Consolas, monospace;
+  }
+  .ticket .expire { font-size: 12px; color: var(--muted); margin-top: 8px; }
+
+  .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin-top: 44px; }
+  .feature {
+    background: rgba(28,22,30,.72); border: 1px solid #3c3040; border-radius: 12px; padding: 18px;
+    backdrop-filter: blur(3px);
+  }
+  .feature h3 { margin: 0 0 6px; font-size: 15px; color: var(--accent-soft); }
+  .feature p { margin: 0; font-size: 13px; color: var(--muted); }
+
+  footer { margin-top: 48px; text-align: center; font-size: 12px; color: #6b5a68; }
+  a { color: var(--sea); }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="bg"></div>
+<div class="scrim"></div>
+<div class="wrap">
+
+  <header>
+    <h1>묘항</h1>
+    <div class="tagline">고양이들이 사는 항구 마을</div>
+    <div class="sub">다락방을 꾸미고, 이웃집에 놀러 가고, 벽에 쪽지를 남기세요.</div>
+    <div class="status">
+      <span><span class="dot off" id="dot"></span> <span id="serverState">서버 확인 중</span></span>
+      <span>접속 중 <b id="online">-</b>명</span>
+      <span>방 <b id="rooms">-</b>개</span>
+    </div>
+  </header>
+
+  <!-- 로그인 -->
+  <section class="card" id="loginCard">
+    <h2>입장하기</h2>
+    <p class="hint">처음 쓰는 닉네임이면 그대로 계정이 만들어져요.</p>
+    <form id="loginForm" autocomplete="off">
+      <label for="nick">닉네임 <span style="opacity:.7">(16자까지)</span></label>
+      <input id="nick" name="nick" maxlength="16" placeholder="예: 바다사자" required>
+      <label for="password">비밀번호 <span style="opacity:.7">(4자 이상)</span></label>
+      <input id="password" name="password" type="password" minlength="4" maxlength="64" placeholder="••••••" required>
+      <button type="submit" id="loginBtn">로그인</button>
+    </form>
+    <div class="msg" id="loginMsg"></div>
+  </section>
+
+  <!-- 로그인 후 -->
+  <section class="card hidden" id="playCard">
+    <h2 id="welcome">환영합니다</h2>
+    <p class="hint">게임 시작을 누르면 클라이언트가 입장권으로 접속합니다. 비밀번호는 게임에 넘어가지 않아요.</p>
+    <button id="startBtn">게임 시작</button>
+    <button class="ghost" id="logoutBtn">다른 계정으로</button>
+    <div class="ticket">
+      <div class="label">입장권 (클라이언트가 자동으로 열리지 않으면 이 코드를 시작 화면에 붙여넣으세요)</div>
+      <code id="ticketCode">-</code>
+      <div class="expire" id="ticketExpire"></div>
+      <button class="ghost" id="copyBtn" style="margin-top:10px">코드 복사</button>
+    </div>
+    <div class="msg" id="playMsg"></div>
+  </section>
+
+  <section class="features">
+    <div class="feature"><h3>내 다락방 꾸미기</h3><p>가구를 사서 바닥에 놓고 벽에 겁니다. 꾸민 그대로 저장됩니다.</p></div>
+    <div class="feature"><h3>쪽지 방명록</h3><p>이웃집 벽에 쪽지를 붙입니다. 주인이 없어도 남길 수 있어요.</p></div>
+    <div class="feature"><h3>화분 키우기</h3><p>씨앗을 심고 며칠 뒤에 오면 꽃이 피어 있습니다. 꺾어서 장식하세요.</p></div>
+    <div class="feature"><h3>부둣가와 댄스홀</h3><p>다 같이 모이는 공용 공간. 춤추고 우유를 뽑아 마십니다.</p></div>
+  </section>
+
+  <footer>
+    2000년대 커뮤니티 게임 장르를 원본 IP와 무관하게 재창조하는 개인 프로젝트입니다.<br>
+    원본의 명칭·로고·캐릭터·에셋은 사용하지 않습니다.
+  </footer>
+
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let ticket = null, expiresAt = 0, countdown = null, gamePort = 30000;
+
+// 입장권에는 **서버 주소가 함께** 실린다. 이 페이지를 연 주소가 곧 서버 주소이므로 그대로 쓴다.
+// (주소가 없으면 다른 PC 의 클라이언트가 127.0.0.1 = 자기 자신에게 접속을 시도한다.)
+const connectCode = () => ticket ? `${location.hostname}:${gamePort}/${ticket}` : '';
+
+// ---- 서버 상태 ----
+async function refreshStatus() {
+  try {
+    const r = await fetch('/api/status');
+    if (!r.ok) throw new Error();
+    const s = await r.json();
+    $('online').textContent = s.online;
+    $('rooms').textContent = s.rooms;
+    if (s.gamePort) gamePort = s.gamePort;
+    $('dot').classList.remove('off');
+    $('serverState').textContent = '서버 정상';
+  } catch {
+    $('dot').classList.add('off');
+    $('serverState').textContent = '서버 응답 없음';
+    $('online').textContent = '-';
+    $('rooms').textContent = '-';
+  }
+}
+refreshStatus();
+setInterval(refreshStatus, 10000);
+
+// ---- 로그인 ----
+$('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const nick = $('nick').value.trim();
+  const password = $('password').value;
+  const msg = $('loginMsg');
+  msg.className = 'msg';
+  msg.textContent = '확인 중…';
+  $('loginBtn').disabled = true;
+
+  try {
+    const r = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nick, password })
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok || !data.ok) {
+      msg.className = 'msg err';
+      msg.textContent = data.reason || '로그인하지 못했어요.';
+      return;
+    }
+    ticket = data.ticket;
+    expiresAt = Date.now() + (data.expiresInSeconds || 300) * 1000;
+    $('welcome').textContent = data.created ? `${data.nick}님, 처음 오셨네요` : `${data.nick}님, 다시 오셨네요`;
+    $('ticketCode').textContent = connectCode();
+    $('loginCard').classList.add('hidden');
+    $('playCard').classList.remove('hidden');
+    startCountdown();
+  } catch {
+    msg.className = 'msg err';
+    msg.textContent = '서버에 연결하지 못했어요. 서버가 켜져 있는지 확인해 주세요.';
+  } finally {
+    $('loginBtn').disabled = false;
+  }
+});
+
+function startCountdown() {
+  clearInterval(countdown);
+  const tick = () => {
+    const left = Math.max(0, Math.round((expiresAt - Date.now()) / 1000));
+    $('ticketExpire').textContent = left > 0
+      ? `${Math.floor(left / 60)}분 ${String(left % 60).padStart(2, '0')}초 뒤 만료됩니다.`
+      : '만료되었습니다. 다시 로그인해 주세요.';
+    if (left <= 0) {
+      clearInterval(countdown);
+      $('startBtn').disabled = true;
+    }
+  };
+  tick();
+  countdown = setInterval(tick, 1000);
+}
+
+// ---- 게임 시작 ----
+$('startBtn').addEventListener('click', () => {
+  if (!ticket) return;
+  const msg = $('playMsg');
+  msg.className = 'msg ok';
+  msg.textContent = '클라이언트를 여는 중…';
+  // 등록된 프로토콜 핸들러가 있으면 클라이언트가 열린다. 없으면 아무 일도 일어나지 않으므로 코드 안내를 남긴다.
+  window.location.href = 'harbor://' + connectCode();
+  setTimeout(() => {
+    msg.className = 'msg';
+    msg.textContent = '창이 열리지 않았다면 게임을 직접 실행하고 위 코드를 붙여넣으세요.';
+  }, 2500);
+});
+
+$('copyBtn').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(connectCode());
+    $('playMsg').className = 'msg ok';
+    $('playMsg').textContent = '복사했어요.';
+  } catch {
+    $('playMsg').className = 'msg err';
+    $('playMsg').textContent = '복사하지 못했어요. 코드를 직접 선택해 주세요.';
+  }
+});
+
+$('logoutBtn').addEventListener('click', () => {
+  ticket = null;
+  clearInterval(countdown);
+  $('startBtn').disabled = false;
+  $('playCard').classList.add('hidden');
+  $('loginCard').classList.remove('hidden');
+  $('loginMsg').textContent = '';
+  $('password').value = '';
+  $('nick').focus();
+});
+</script>
+</body>
+</html>

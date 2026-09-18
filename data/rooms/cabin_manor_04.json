@@ -1,0 +1,31 @@
+{
+  "roomId": "cabin_manor_04",
+  "name": "다락 저택",
+  "kind": "private",
+  "_note": "cabin_grand_03 을 그대로 품는다 (x1~18, y1~10, 문 10,11). 왼쪽 위 테두리와 단상(5~7, 3~4)은 1단계부터 같은 자리다.",
+  "heightmap": [
+    "xxxxxxxxxxxxxxxxxxxxxxxx",
+    "x0000000000000000000000x",
+    "x0000000000000000000000x",
+    "x0000111000000000000000x",
+    "x0000111000000000000000x",
+    "x0000000000000000000000x",
+    "x0000000000000000000000x",
+    "x0000000000000000000000x",
+    "x0000000000000000000000x",
+    "x0000000000000000000000x",
+    "x0000000000000000000000x",
+    "x0000000000000000000000x",
+    "x0000000000000000000000x",
+    "xxxxxxxxxxx00xxxxxxxxxxx"
+  ],
+  "door": { "x": 11, "y": 13, "dir": 0 },
+  "wall": { "style": "wall_wood_01", "height": 3 },
+  "floor": { "style": "floor_carpet_blue" },
+  "spawn": [ { "x": 11, "y": 12, "dir": 4 } ],
+  "maxUsers": 45,
+  "family": "cabin",
+  "tier": 4,
+  "upgrade": "cabin_harbor_05",
+  "upgradePrice": 20000
+}

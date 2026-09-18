@@ -1,0 +1,28 @@
+{
+  "roomId": "corner_02",
+  "name": "넓은 모퉁이집",
+  "kind": "private",
+  "_note": "corner_01 을 그대로 품는다 (날개 x4~10 × y1~2, 아래채 x1~10 × y3~7, 문 5,8). 홈(x1~3 × y1~2)은 단계가 올라가도 그대로 둔다 — 메우면 그 면의 벽이 사라진다.",
+  "heightmap": [
+    "xxxxxxxxxxxxxxxx",
+    "xxxx00000000000x",
+    "xxxx00000000000x",
+    "x00000000000000x",
+    "x00000000000000x",
+    "x00000000000000x",
+    "x00000000000000x",
+    "x00000000000000x",
+    "x00000000000000x",
+    "x00000000000000x",
+    "xxxxxxx0xxxxxxxx"
+  ],
+  "door": { "x": 7, "y": 10, "dir": 0 },
+  "wall": { "style": "wall_wood_01", "height": 3 },
+  "floor": { "style": "floor_plank_warm" },
+  "spawn": [ { "x": 7, "y": 9, "dir": 4 } ],
+  "maxUsers": 30,
+  "family": "corner",
+  "tier": 2,
+  "upgrade": "corner_03",
+  "upgradePrice": 2800
+}

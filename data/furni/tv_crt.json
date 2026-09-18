@@ -1,0 +1,20 @@
+{
+  "furniId": "tv_crt",
+  "displayName": "브라운관 TV",
+  "category": "appliance",
+  "footprint": { "w": 1, "h": 1 },
+  "height": 1.0,
+  "flags": ["solid", "rotatable"],
+  "rotations": [0, 2, 4, 6],
+  "sprite": "furni/appliance/tv_crt",
+  "states": ["off", "on"],
+  "interaction": {
+    "type": "fsm",
+    "initial": "off",
+    "transitions": [
+      { "from": "off", "on": "use", "to": "on", "effect": "emote:laugh" },
+      { "from": "on", "on": "use", "to": "off" }
+    ]
+  },
+  "price": { "currency": "rupee", "amount": 600 }
+}

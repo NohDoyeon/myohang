@@ -1,0 +1,20 @@
+{
+  "frames": {
+    "avatar/hd/001_4_stand_0": {
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "w": 53,
+        "h": 69
+      }
+    }
+  },
+  "meta": {
+    "image": "atlas.png",
+    "size": {
+      "w": 53,
+      "h": 69
+    },
+    "format": "RGBA8888"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "furniId": "flower_pot",
+  "displayName": "캣닢 화분",
+  "category": "plant",
+  "footprint": { "w": 1, "h": 1 },
+  "height": 1.0,
+  "flags": ["solid"],
+  "rotations": [0],
+  "sprite": "furni/plant/catnip_pot",
+  "states": ["seed", "sprout", "bud", "bloom"],
+  "interaction": {
+    "type": "fsm",
+    "initial": "seed",
+    "transitions": [
+      { "from": "seed", "on": "timer:120000", "to": "sprout" },
+      { "from": "sprout", "on": "timer:180000", "to": "bud" },
+      { "from": "bud", "on": "timer:300000", "to": "bloom" },
+      { "from": "bloom", "on": "use", "to": "seed", "effect": "give_item:flower_cut" }
+    ]
+  },
+  "price": { "currency": "rupee", "amount": 60 },
+  "_note": "furniId 는 저장 호환 때문에 flower_pot 그대로. 표시명·스프라이트만 캣닢."
+}

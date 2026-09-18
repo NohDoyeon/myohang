@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- 랜딩 페이지는 web/ 폴더에서 직접 서빙한다. Web SDK 의 wwwroot 정적 자산 매니페스트를 쓰지 않는 이유:
+         ContentRoot 를 AppContext.BaseDirectory 로 고정해 두어 실행 방식과 무관하게 같은 경로를 보게 하기 위함. -->
+    <StaticWebAssetsEnabled>false</StaticWebAssetsEnabled>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Harbor.Core\Harbor.Core.csproj" />
+    <ProjectReference Include="..\Harbor.Protocol\Harbor.Protocol.csproj" />
+    <PackageReference Include="Npgsql" Version="8.0.5" />
+    <!-- 옛 saves/harbor.db 를 Postgres 로 옮기는 SQLite 이관 모드에서만 쓴다. 이관이 끝나면 지워도 된다. -->
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.8" />
+    <PackageReference Include="Dapper" Version="2.1.35" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\data\**\*.json" Link="data\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\web\**\*" Link="web\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

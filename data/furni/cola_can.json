@@ -1,0 +1,17 @@
+{
+  "furniId": "cola_can",
+  "displayName": "우유팩",
+  "category": "consumable",
+  "footprint": { "w": 1, "h": 1 },
+  "height": 0.2,
+  "flags": [],
+  "rotations": [0],
+  "sprite": "furni/consumable/cola_can",
+  "states": ["full", "empty"],
+  "interaction": {
+    "type": "fsm",
+    "initial": "full",
+    "transitions": [ { "from": "full", "on": "use", "to": "empty", "effect": "emote:drink" } ]
+  },
+  "price": { "currency": "rupee", "amount": 10 }
+}

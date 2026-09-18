@@ -1,0 +1,21 @@
+{
+  "furniId": "fridge_red",
+  "displayName": "빨간 냉장고",
+  "category": "appliance",
+  "footprint": { "w": 1, "h": 1 },
+  "height": 2.0,
+  "flags": ["solid", "rotatable"],
+  "rotations": [0, 2, 4, 6],
+  "sprite": "furni/appliance/fridge_red",
+  "states": ["closed", "open"],
+  "interaction": {
+    "type": "fsm",
+    "initial": "closed",
+    "transitions": [
+      { "from": "closed", "on": "use", "to": "open", "effect": "give_item:cola_can" },
+      { "from": "open", "on": "use", "to": "closed" },
+      { "from": "open", "on": "timer:5000", "to": "closed" }
+    ]
+  },
+  "price": { "currency": "rupee", "amount": 350 }
+}

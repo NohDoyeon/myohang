@@ -1,0 +1,20 @@
+{
+  "furniId": "cola_machine",
+  "displayName": "우유 자판기",
+  "category": "appliance",
+  "footprint": { "w": 1, "h": 1 },
+  "height": 2.0,
+  "flags": ["solid", "rotatable"],
+  "rotations": [2, 4],
+  "sprite": "furni/appliance/cola_machine",
+  "states": ["ready", "serving"],
+  "interaction": {
+    "type": "fsm",
+    "initial": "ready",
+    "transitions": [
+      { "from": "ready", "on": "use", "to": "serving", "effect": "give_item:cola_can" },
+      { "from": "serving", "on": "timer:1500", "to": "ready" }
+    ]
+  },
+  "price": { "currency": "rupee", "amount": 800 }
+}

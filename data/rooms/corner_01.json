@@ -1,0 +1,26 @@
+{
+  "roomId": "corner_01",
+  "name": "모퉁이집",
+  "kind": "private",
+  "_note": "ㄱ자 계열 1단계. 홈은 반드시 '먼 구석'(x 작고 y 작은 쪽, 여기선 x1~3 × y1~2)에 판다. 그래야 도려낸 면에 벽이 생긴다. 반대로 파면 날개 윗변에 벽이 안 생겨 뚫려 보인다.",
+  "heightmap": [
+    "xxxxxxxxxxxx",
+    "xxxx0000000x",
+    "xxxx0000000x",
+    "x0000000000x",
+    "x0000000000x",
+    "x0000000000x",
+    "x0000000000x",
+    "x0000000000x",
+    "xxxxx0xxxxxx"
+  ],
+  "door": { "x": 5, "y": 8, "dir": 0 },
+  "wall": { "style": "wall_wood_01", "height": 3 },
+  "floor": { "style": "floor_plank_warm" },
+  "spawn": [ { "x": 5, "y": 7, "dir": 4 } ],
+  "maxUsers": 25,
+  "family": "corner",
+  "tier": 1,
+  "upgrade": "corner_02",
+  "upgradePrice": 900
+}

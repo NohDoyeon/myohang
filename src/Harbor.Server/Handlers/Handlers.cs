@@ -23,7 +23,8 @@ public static class HandlerRegistration
             var nick = p.Login.Trim();
             var secret = p.Token ?? "";
 
-            if (tickets.Redeem(secret) is { } ticketNick) nick = ticketNick;        // 웹 로그인으로 이미 인증됨
+            bool byTicket = false;
+            if (tickets.Redeem(secret) is { } ticketNick) { nick = ticketNick; byTicket = true; }   // 웹 로그인으로 이미 인증됨
             else
             {
                 // 원칙은 "가입은 웹에서만"(account 테이블의 주인이 하나여야 한다).
@@ -43,7 +44,8 @@ public static class HandlerRegistration
                 s.Send(Opcode.S_LoginResult, new S_LoginResult { Ok = false, Reason = "이미 접속 중인 닉네임이에요" });
                 return Task.CompletedTask;
             }
-            save.LogLogin(nick, "game", true);
+            // 어떤 경로로 들어왔는지 남긴다 — 웹 로그인이 실제로 동작하는지 로그만 보고 알 수 있어야 한다.
+            save.LogLogin(nick, "game", true, byTicket ? "입장권" : "비밀번호");
 
             s.UserId = Interlocked.Increment(ref _nextUserId);
             s.Nick = nick;

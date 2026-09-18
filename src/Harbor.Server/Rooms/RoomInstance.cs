@@ -298,6 +298,7 @@ public sealed class RoomInstance
         });
         Broadcast(Opcode.S_UserEnter, new S_UserEnter { User = u.ToDto(FameOf(s.Nick)) }, except: s.UserId);
         _log.LogInformation("enter: {Nick} → {Room} ({Count}명)", s.Nick, Name, _users.Count);
+
     }
 
     private void OnLeave(Session s)

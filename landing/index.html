@@ -253,7 +253,8 @@ $('loginForm').addEventListener('submit', async (e) => {
     const data = await r.json().catch(() => ({}));
     if (!r.ok || !data.ok) {
       msg.className = 'msg err';
-      msg.textContent = data.reason || '로그인하지 못했어요.';
+      // 원인 코드가 오면 같이 보여 준다 — 무엇이 막혔는지 바로 알 수 있다(값은 오지 않는다).
+      msg.textContent = (data.reason || '로그인하지 못했어요.') + (data.code ? ` [${data.code}]` : '');
       return;
     }
     connect = data.connect;

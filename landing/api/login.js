@@ -14,6 +14,7 @@
 
 import crypto from "node:crypto";
 import { Client } from "pg";
+import { pgConfig } from "./_db.js";
 
 const ITERATIONS = 120_000;
 const SALT_BYTES = 16;
@@ -28,6 +29,7 @@ const pbkdf2 = (password, salt) =>
 
 const b64url = (buf) => buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
+
 /** `t1.<payload>.<서명>` — payload 는 `닉|만료(Unix초)`. 게임 서버가 같은 키로 검증한다. */
 function issueTicket(nick, secret) {
   const payload = Buffer.from(`${nick}|${Math.floor(Date.now() / 1000) + TICKET_SECONDS}`, "utf8");
@@ -38,7 +40,12 @@ function issueTicket(nick, secret) {
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ ok: false, reason: "POST 만 받습니다" });
 
-  const { HARBOR_DB, HARBOR_TICKET_SECRET, HARBOR_GAME_HOST, HARBOR_GAME_PORT } = process.env;
+  // 붙여넣다 보면 앞뒤에 공백·줄바꿈이 붙는다(실측: PORT 가 "30000\n" 이었다).
+  // 그대로 쓰면 주소가 `host:30000\n/ticket` 이 되어 접속이 깨지므로 항상 다듬는다.
+  const env = (k) => (process.env[k] ?? "").trim();
+  const [HARBOR_DB, HARBOR_TICKET_SECRET, HARBOR_GAME_HOST, HARBOR_GAME_PORT] =
+    ["HARBOR_DB", "HARBOR_TICKET_SECRET", "HARBOR_GAME_HOST", "HARBOR_GAME_PORT"].map(env);
+
   if (!HARBOR_DB || !HARBOR_TICKET_SECRET || !HARBOR_GAME_HOST) {
     // 값을 그대로 노출하지 않고 **무엇이 비었는지만** 알려 준다.
     const missing = [!HARBOR_DB && "HARBOR_DB", !HARBOR_TICKET_SECRET && "HARBOR_TICKET_SECRET",
@@ -54,7 +61,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ ok: false, reason: `비밀번호는 ${PW_MIN}~${PW_MAX}자로 입력해 주세요` });
 
   const key = nick.toLowerCase();
-  const db = new Client({ connectionString: HARBOR_DB, ssl: { rejectUnauthorized: false } });
+  const db = new Client(pgConfig(HARBOR_DB));
 
   try {
     await db.connect();
@@ -95,7 +102,13 @@ export default async function handler(req, res) {
     });
   } catch (e) {
     console.error("login failed", e);            // 자세한 내용은 서버 로그에만
-    return res.status(500).json({ ok: false, reason: "지금은 로그인할 수 없어요. 잠시 후 다시 시도해 주세요." });
+    // 원인 코드만 함께 돌려준다(ENOTFOUND=주소 오타, ETIMEDOUT=막힘, 28P01=비밀번호 틀림, 3D000=DB 이름 틀림).
+    // 값이 새지 않으면서 "어디서 막혔는지"를 바로 알 수 있다.
+    return res.status(500).json({
+      ok: false,
+      reason: "지금은 로그인할 수 없어요. 잠시 후 다시 시도해 주세요.",
+      code: e?.code ?? e?.name ?? "UNKNOWN",
+    });
   } finally {
     await db.end().catch(() => {});
   }

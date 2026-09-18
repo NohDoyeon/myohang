@@ -112,6 +112,11 @@
 pre-commit 훅이 한 번 더 검사한다. **커밋 목록에 `saves/`·`.env`·`*.log` 가 없는지 눈으로 확인할 것.**
 
 ### 배포 (10명 MVP 테스트)
+**웹 로그인 동작함 (2026-09-18 확인)**: https://myohang.vercel.app 에서 로그인 → 입장권 → **[게임 바로 열기]로 입장까지** 성공.
+- 설정 점검은 **`/api/health?db=1`** (값은 안 보여 주고 있는지·길이·DB 연결 결과만). 막히면 여기부터 본다.
+- Vercel 환경변수는 **배포 시점에 주입**된다 → 값을 바꾸면 반드시 **Redeploy**.
+- 남은 것: **포트포워딩**(지금 `HARBOR_GAME_HOST=127.0.0.1` 이라 이 PC 에서만 된다) · 클라 zip 에 `register-url-scheme.bat` 동봉.
+
 **공개 소개 페이지: https://myohang.vercel.app** — 저장소의 `landing/` 폴더를 Vercel 이 서빙한다
 (Framework `Other` · Root Directory `landing`). `main` 에 푸시하면 자동 재배포되므로 따로 할 일이 없다.
 게임 서버가 서빙하는 `web/index.html` 과는 **다른 파일**이다(이유는 `landing/README.md`).

@@ -33,8 +33,6 @@ theme/custom="res://ui/theme.tres"
 
 [rendering]
 
-; 0 = Nearest. 도트가 뭉개지지 않게.
 textures/canvas_textures/default_texture_filter=0
-; 걷는 중엔 위치가 소수점으로 보간된다. 스냅을 켜야 픽셀이 반 칸에 걸쳐 찢어지지 않는다.
 2d/snap/snap_2d_transforms_to_pixel=true
 2d/snap/snap_2d_vertices_to_pixel=true

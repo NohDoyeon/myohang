@@ -1,0 +1,44 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Godot 내보내기 전용 솔루션.
+#
+# Godot 의 .NET 내보내기는 project.godot 옆에서 `<assembly_name>.sln` 을 찾는다(없으면 내보내기가 실패한다).
+# 개발·테스트는 저장소 루트의 Harbor.sln 을 계속 쓴다. 이 파일은 내보낼 때만 쓰인다.
+#
+# Godot 은 ExportDebug / ExportRelease 구성으로 빌드한다. Harbor.Core·Harbor.Protocol 은
+# 평범한 SDK 프로젝트라 그 구성이 없으므로, 아래에서 Debug / Release 로 이어 준다.
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HarborClient", "HarborClient.csproj", "{C7A1E0A2-3B64-4F1D-9E5C-1A2B3C4D5E01}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Harbor.Core", "..\src\Harbor.Core\Harbor.Core.csproj", "{C7A1E0A2-3B64-4F1D-9E5C-1A2B3C4D5E02}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Harbor.Protocol", "..\src\Harbor.Protocol\Harbor.Protocol.csproj", "{C7A1E0A2-3B64-4F1D-9E5C-1A2B3C4D5E03}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		ExportDebug|Any CPU = ExportDebug|Any CPU
+		ExportRelease|Any CPU = ExportRelease|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C7A1E0A2-3B64-4F1D-9E5C-1A2B3C4D5E01}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C7A1E0A2-3B64-4F1D-9E5C-1A2B3C4D5E01}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C7A1E0A2-3B64-4F1D-9E5C-1A2B3C4D5E01}.ExportDebug|Any CPU.ActiveCfg = ExportDebug|Any CPU
+		{C7A1E0A2-3B64-4F1D-9E5C-1A2B3C4D5E01}.ExportDebug|Any CPU.Build.0 = ExportDebug|Any CPU
+		{C7A1E0A2-3B64-4F1D-9E5C-1A2B3C4D5E01}.ExportRelease|Any CPU.ActiveCfg = ExportRelease|Any CPU
+		{C7A1E0A2-3B64-4F1D-9E5C-1A2B3C4D5E01}.ExportRelease|Any CPU.Build.0 = ExportRelease|Any CPU
+		{C7A1E0A2-3B64-4F1D-9E5C-1A2B3C4D5E02}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C7A1E0A2-3B64-4F1D-9E5C-1A2B3C4D5E02}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C7A1E0A2-3B64-4F1D-9E5C-1A2B3C4D5E02}.ExportDebug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C7A1E0A2-3B64-4F1D-9E5C-1A2B3C4D5E02}.ExportDebug|Any CPU.Build.0 = Debug|Any CPU
+		{C7A1E0A2-3B64-4F1D-9E5C-1A2B3C4D5E02}.ExportRelease|Any CPU.ActiveCfg = Release|Any CPU
+		{C7A1E0A2-3B64-4F1D-9E5C-1A2B3C4D5E02}.ExportRelease|Any CPU.Build.0 = Release|Any CPU
+		{C7A1E0A2-3B64-4F1D-9E5C-1A2B3C4D5E03}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C7A1E0A2-3B64-4F1D-9E5C-1A2B3C4D5E03}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C7A1E0A2-3B64-4F1D-9E5C-1A2B3C4D5E03}.ExportDebug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C7A1E0A2-3B64-4F1D-9E5C-1A2B3C4D5E03}.ExportDebug|Any CPU.Build.0 = Debug|Any CPU
+		{C7A1E0A2-3B64-4F1D-9E5C-1A2B3C4D5E03}.ExportRelease|Any CPU.ActiveCfg = Release|Any CPU
+		{C7A1E0A2-3B64-4F1D-9E5C-1A2B3C4D5E03}.ExportRelease|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

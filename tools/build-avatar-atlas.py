@@ -238,13 +238,33 @@ def main():
 
     out_png = root / "client-godot/art/atlas.png"
     out_json = root / "client-godot/art/atlas.json"
+    out_cs = root / "client-godot/art/AtlasMeta.cs"
     atlas.save(out_png)
-    out_json.write_text(json.dumps({
+    meta = json.dumps({
         "frames": frames,
         "meta": {"image": "atlas.png", "size": {"w": atlas.size[0], "h": atlas.size[1]}, "format": "RGBA8888"},
-    }, ensure_ascii=False, indent=2), encoding="utf-8")
+    }, ensure_ascii=False, indent=2)
+    out_json.write_text(meta, encoding="utf-8")
+
+    # 같은 내용을 C# 상수로도 뱉는다. **내보낸 게임에서는 이쪽이 쓰인다.**
+    # atlas.json 은 Godot 이 말하는 '리소스'가 아니라서 export_presets.cfg 의 include_filter 에
+    # 걸려야만 pck 에 들어가는데, 그 동작이 같은 설정에서도 들쭉날쭉했다(2026-09-18).
+    # 빠져도 크래시가 아니라 **고양이가 네모로 나오는 조용한 실패**라 알아채기 어렵다.
+    # 스크립트는 dll 로 컴파일되므로 이 경로는 빠질 수가 없다.
+    if '"""' in meta:                      # raw string literal 의 구분자와 충돌하면 안 된다
+        raise SystemExit('atlas.json 에 \"\"\" 가 들어 있어 C# 상수로 감쌀 수 없습니다.')
+    out_cs.write_text(
+        "// 자동 생성됨 — tools/build-avatar-atlas.py. 손으로 고치지 말 것.\n"
+        "// atlas.json 과 같은 내용이며, 내보낸 게임은 파일 대신 이것을 읽는다(AssetCatalog 참고).\n"
+        "namespace HarborClient;\n\n"
+        "public static class AtlasMeta\n{\n"
+        "    public const string Json = \"\"\"\n"
+        f"{meta}\n"
+        "\"\"\";\n}\n",
+        encoding="utf-8")
 
     print(f"프레임 {len(frames)}개 -> {out_png.name} ({atlas.size[0]}x{atlas.size[1]})")
+    print(f"             -> {out_json.name} · {out_cs.name}")
     print("[!] 이제 tools/import-assets.ps1 을 실행해야 Godot 이 새 PNG 를 읽습니다.")
     return 0
 

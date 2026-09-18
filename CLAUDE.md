@@ -63,6 +63,12 @@
 - `[MessagePackObject]` 타입에 **한 줄 다중 필드 선언 금지**(같은 `[Key]` 공유 → 직렬화 예외).
 - **텍스트 입력에 `LineEdit`/`TextEdit` 금지** — 이 환경에서 한글 IME 조합이 깨진다. `HangulInput` 을 쓴다.
 - 그림을 넣거나 바꾼 뒤에는 **`tools/import-assets.ps1`** 을 한 번 돌려야 Godot 이 읽는다.
+- **아틀라스 프레임 표는 두 곳에 있다** — `art/atlas.json`(에디터용)과 `art/AtlasMeta.cs`(배포용 C# 상수).
+  `tools/build-avatar-atlas.py` 가 **둘 다** 갱신한다. `.json` 은 Godot 리소스가 아니라 pck 에 들어간다고 믿을 수 없고,
+  빠져도 크래시가 아니라 **고양이가 네모로 나오는 조용한 실패**다.
+- **클라 배포는 `bash tools/pack-client.sh`** — 에디터에서 손으로 내보내지 않는다(내보내기 폴더 미생성·필터 누락으로 매번 같은 곳에서 막힌다).
+  Godot 의 .NET 내보내기는 `client-godot/HarborClient.sln` 을 요구하고, 그 안의 **`ExportRelease` → `Release` 매핑**이 없으면 참조 프로젝트가 깨진다.
+- **자동 검사는 통과·실패를 둘 다 눈으로 본 뒤에 넣는다.** (.NET 문자열 상수는 **UTF-16** 이라 그냥 `grep` 하면 못 찾는다 → `tr -d '\000'`)
 - `S_InventoryUpdate.Qty` 는 델타가 아니라 **현재 보유 수량(절대값)**.
 - 방 템플릿은 규칙이 많다 → **`docs/room-template-spec.md`**. 넓히기 포함관계는 `RoomUpgradeTests` 가 지킨다.
 - 클라이언트는 **웹으로 내보낼 수 없다**(Godot .NET 빌드 제약). 웹 플레이는 GDScript 재작성 + WebSocket 이 필요하다.

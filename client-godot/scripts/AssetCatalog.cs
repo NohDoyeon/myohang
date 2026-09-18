@@ -34,11 +34,11 @@ public static class AssetCatalog
     {
         _loaded = true;
 
-        if (!FileAccess.FileExists(MetaPath))
-        {
-            GD.Print($"[AssetCatalog] {MetaPath} 없음 — placeholder 모드");
-            return;
-        }
+        // 프레임 표는 **두 곳**에서 온다. 파일이 먼저인 이유는 에디터에서 아틀라스를 다시 만들었을 때
+        // 다시 빌드하지 않고 바로 보기 위해서다. 내보낸 게임에는 파일이 없으므로 상수 쪽이 쓰인다
+        // (atlas.json 은 Godot 의 '리소스'가 아니라 pck 에 안전하게 들어간다고 믿을 수 없다 — WORKLOG 17차).
+        string meta = FileAccess.FileExists(MetaPath) ? FileAccess.GetFileAsString(MetaPath) : "";
+        if (meta.Length == 0) meta = AtlasMeta.Json;
 
         // 임포트 안 된 PNG 에 GD.Load 를 걸면 엔진이 긴 오류를 뱉는다. 미리 확인해 조용히 넘어간다.
         if (!ResourceLoader.Exists(SheetPath))
@@ -55,7 +55,7 @@ public static class AssetCatalog
             return;
         }
 
-        var parsed = Json.ParseString(FileAccess.GetFileAsString(MetaPath));
+        var parsed = Json.ParseString(meta);
         if (parsed.VariantType != Variant.Type.Dictionary)
         {
             GD.PrintErr("[AssetCatalog] atlas.json 을 읽지 못함(형식 오류) — placeholder 모드");

@@ -29,8 +29,9 @@ public sealed class RoomManager
         var def = _defs.Rooms[templateId];
         var id = Interlocked.Increment(ref _nextId);
         var saved = _save.GetRoom(SaveStore.RoomKey(ownerNick, templateId));
-        var room = new RoomInstance(id, def, _defs, _opt.TickMs, _lf.CreateLogger<RoomInstance>(),
-                                    ownerId, ownerNick, name ?? saved?.Name, _save, seed ?? saved?.Items ?? TemplateFurni(def), _eco);
+        var room = new RoomInstance(id, def, _defs, _opt.TickMs, _opt.MoveTicks, _lf.CreateLogger<RoomInstance>(),
+                                    ownerId, ownerNick, name ?? saved?.Name, _save, seed ?? saved?.Items ?? TemplateFurni(def), _eco,
+                                    saved?.WallStyle ?? "", saved?.FloorStyle ?? "");
         _rooms[id] = room;
         return room;
     }

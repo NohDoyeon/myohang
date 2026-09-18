@@ -24,6 +24,8 @@ public sealed class RoomDto
     [Key(13)] public string UpgradeName = ""; // 다음 단계 방 이름 (표시용)
     [Key(14)] public int Width;              // 타일 수 (표시용)
     [Key(15)] public int Height;
+    /// <summary>한 칸 걷는 데 걸리는 시간(ms). 클라는 이 값으로 보간해야 서버 걸음과 어긋나지 않는다.</summary>
+    [Key(16)] public int MoveMs = 240;
 }
 
 [MessagePackObject]
@@ -142,6 +144,8 @@ public sealed class HouseStyle
 /// 방 꾸미기 권한과는 무관하다 — 남의 방에 물건을 놓을 수 있는 건 여전히 포스트잇뿐이다.
 /// </summary>
 [MessagePackObject] public sealed class C_OfferItem { [Key(0)] public long ItemId; }
+/// <summary>방 바닥·벽 스타일 바꾸기(방 주인만). 빈 문자열이면 그 항목은 그대로 둔다.</summary>
+[MessagePackObject] public sealed class C_SetRoomStyle { [Key(0)] public string Wall = ""; [Key(1)] public string Floor = ""; }
 
 // ----- S → C -----
 /// <summary>Nick 은 서버가 확정한 닉 — 입장권으로 들어오면 클라가 입력한 값과 다를 수 있으므로 이걸 따른다.</summary>
@@ -151,6 +155,8 @@ public sealed class HouseStyle
 [MessagePackObject] public sealed class S_RoomSnapshot { [Key(0)] public RoomDto Room = new(); [Key(1)] public List<ItemDto> Items = new(); [Key(2)] public List<UserDto> Users = new(); }
 [MessagePackObject] public sealed class S_RoomList { [Key(0)] public List<RoomInfo> Rooms = new(); }
 [MessagePackObject] public sealed class S_HouseList { [Key(0)] public List<HouseStyle> Houses = new(); }
+/// <summary>방 바닥·벽이 바뀌었다. 방 안 모두가 다시 그린다.</summary>
+[MessagePackObject] public sealed class S_RoomStyle { [Key(0)] public string Wall = ""; [Key(1)] public string Floor = ""; }
 [MessagePackObject] public sealed class S_UserEnter { [Key(0)] public UserDto User = new(); }
 [MessagePackObject] public sealed class S_UserLeave { [Key(0)] public long UserId; }
 [MessagePackObject] public sealed class S_UserPath { [Key(0)] public long UserId; [Key(1)] public List<TilePos> Path = new(); }

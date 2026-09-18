@@ -32,6 +32,8 @@ public partial class AvatarView : Node2D
     private Label _badge = null!;
     private readonly Queue<(Vector2 pos, byte dir, (int x, int y) tile)> _targets = new();
     private Vector2 _from, _to; private float _t = 1f; private bool _moving;
+    private bool _lastLeg;      // 이 칸이 경로의 마지막인가 (도착할 때만 감속)
+    private int _frame;         // 지금 보여 주는 애니메이션 프레임 (walk 0/1)
     private (int x, int y) _tile;
     private string _figure = ""; private byte _dir = 4; private string _action = "stand";
     private bool _placeholder = true; private float _anim;
@@ -136,6 +138,19 @@ public partial class AvatarView : Node2D
 
     private const string PaletteShaderPath = "res://ui/palette_swap.gdshader";
 
+    /// <summary>
+    /// 그림의 방향 번호를 엔진 방향에 맞추는 보정. 엔진은 아이소메트릭 기준(화면 아래 = dir 3)이고
+    /// 시트는 back(0)→front(4) 를 위아래 5단계로 그려서 한 칸 밀려 있다.
+    /// **방향이 통째로 어긋나면 이 숫자를 ±1 해 보면 된다.**
+    /// </summary>
+    private const int DirOffset = 1;
+
+    /// <summary>
+    /// 시트의 옆모습이 **화면 왼쪽**을 보고 있는가. 'right' 라벨이 캐릭터 기준인지 화면 기준인지
+    /// 그림마다 다르다 — 좌우만 반대로 보이면 이 값을 뒤집는다.
+    /// </summary>
+    private const bool SheetFacesLeft = false;
+
     public void SetPath(List<(int x, int y)> path, Heightmap map)
     {
         _targets.Clear();
@@ -202,7 +217,8 @@ public partial class AvatarView : Node2D
             if (_targets.TryDequeue(out var next))
             {
                 _from = Position; _to = next.pos; _t = 0f; _moving = true; _tile = next.tile;
-                if (_dir != next.dir) { _dir = next.dir; ApplyFigure(_dir, _action); }
+                _lastLeg = _targets.Count == 0;
+                if (_dir != next.dir) { _dir = next.dir; ApplyFigure(_dir, _action, _frame); }
             }
             else if (_moving)
             {
@@ -214,11 +230,23 @@ public partial class AvatarView : Node2D
         if (_t < 1f)
         {
             _t = Mathf.Min(1f, _t + (float)delta / TileSeconds);
-            Position = _from.Lerp(_to, _t);
+            // 마지막 한 칸에서만 살짝 감속한다. 중간 칸까지 이징을 넣으면 칸마다 멈칫거려 오히려 부자연스럽다.
+            float e = _lastLeg ? 1f - (1f - _t) * (1f - _t) : _t;
+            Position = _from.Lerp(_to, e);
+            // 단차를 오르내릴 땐 살짝 호를 그린다(발이 턱을 넘는 느낌).
+            if (Mathf.Abs(_to.Y - _from.Y) > 4f) Position -= new Vector2(0, StepArcPx * Mathf.Sin(Mathf.Pi * e));
         }
-        if (_placeholder) QueueRedraw();   // 꼬리가 늘 살랑거린다 — 가만히 있어도 살아 있어 보이게
-        else AnimateSprite();              // 스프라이트가 한 장뿐이어도 최소한 움직이게
+
+        // 걷기 2프레임을 **한 칸에 한 걸음**으로 맞춘다 — 벽시계가 아니라 이동 진행도에 맞춰야 발이 땅을 딛는다.
+        int want = _moving && _action == "walk" ? (_t < 0.5f ? 0 : 1) : 0;
+        if (want != _frame) { _frame = want; ApplyFigure(_dir, _action, _frame); }
+
+        QueueRedraw();                     // 그림자와 placeholder 는 매 프레임 다시 그린다
+        if (!_placeholder) AnimateSprite();
     }
+
+    /// <summary>단차를 넘을 때 그리는 호의 높이(px).</summary>
+    private const float StepArcPx = 4f;
 
     /// <summary>
     /// 스프라이트 프레임이 부족해도 캐릭터가 죽어 보이지 않게 몸통을 통째로 위아래로 흔든다.
@@ -229,7 +257,8 @@ public partial class AvatarView : Node2D
     {
         int bob = _action switch
         {
-            "walk" => -(int)MathF.Round(MathF.Abs(MathF.Sin(_anim * 12f)) * 3f),
+            // 걷기는 **이동 진행도**에 맞춘다(벽시계가 아니라). 그림 자체에 걸음이 들어 있으므로 폭은 1px 로 줄였다.
+            "walk" => -(int)MathF.Round(MathF.Sin(MathF.PI * _t) * 1f),
             "dance" => -(int)MathF.Round(MathF.Abs(MathF.Sin(_anim * 8f)) * 4f),
             "laugh" => -(int)MathF.Round(MathF.Abs(MathF.Sin(_anim * 16f)) * 2f),
             "wave" => -(int)MathF.Round(MathF.Abs(MathF.Sin(_anim * 6f)) * 1f),
@@ -240,11 +269,16 @@ public partial class AvatarView : Node2D
         if (Layers.Position.Y != bob) Layers.Position = new Vector2(0, bob);
     }
 
-    private void ApplyFigure(byte dir, string action)
+    private void ApplyFigure(byte dir, string action, int frame = 0)
     {
         // figure "hd-001-01.hr-012-05..." → 파츠별 텍스처 키 avatar/{part}/{id}_{dir}_{anim}_{frame}
-        bool mirror = dir is 5 or 6 or 7;
-        byte baseDir = mirror ? (byte)(8 - dir) : dir;     // 5방향만 제작, 나머지 미러
+        //
+        // 그림의 방향 번호와 엔진의 방향 번호가 다르다. 엔진 dir 은 **아이소메트릭 기준**이라
+        // 화면 '아래'(정면으로 다가옴)가 dir 3, '위'가 dir 7, '오른쪽'이 dir 1 이다.
+        // 반면 시트는 back(0) → front(4) 를 위아래 5단계로 그렸다 → 한 칸씩 밀려 있어 보정한다.
+        byte artDir = (byte)((dir + DirOffset) % 8);
+        bool mirror = artDir is 5 or 6 or 7;
+        byte baseDir = mirror ? (byte)(8 - artDir) : artDir;   // 5방향만 제작, 나머지는 좌우 반전
         bool any = false;
         foreach (var part in _figure.Split('.'))
         {
@@ -252,10 +286,11 @@ public partial class AvatarView : Node2D
             if (p.Length < 3) continue;
             if (Layers.GetNodeOrNull<Sprite2D>(p[0]) is not { } spr) continue;
 
-            var tex = PickTexture(p[0], p[1], baseDir, action, out bool exactDir);
+            var tex = PickTexture(p[0], p[1], baseDir, action, frame, out bool exactDir);
             spr.Texture = tex;
-            // 정면 대체 프레임을 쓸 땐 뒤집으면 안 된다(왼쪽 미러는 옆모습 그림이 있을 때만 의미 있다).
-            spr.FlipH = mirror && exactDir;
+            // 좌우 뒤집기. 정면 대체 프레임을 쓸 땐 뒤집지 않는다(미러는 옆모습 그림이 있을 때만 의미 있다).
+            //
+            spr.FlipH = exactDir && (mirror ^ SheetFacesLeft);
             spr.SetMeta("palette", p[2]);   // 팔레트 스왑 셰이더 uniform 은 후속 작업
             // 원점은 발끝(y=0). Sprite2D 는 가운데 정렬이므로 높이의 절반만큼 올려야 바닥에 선다.
             // 스프라이트 크기가 바뀌어도 .tscn 을 고칠 필요가 없도록 텍스처에서 계산한다.
@@ -270,22 +305,31 @@ public partial class AvatarView : Node2D
     /// placeholder 로 떨어지면 아트를 조금씩 넣는 작업이 불가능하다.
     /// 순서: 그 방향+그 동작 → 그 방향+서기 → 정면+그 동작 → 정면+서기.
     /// </summary>
-    private static Texture2D? PickTexture(string part, string model, byte baseDir, string action, out bool exactDir)
+    private static Texture2D? PickTexture(string part, string model, byte baseDir, string action, int frame, out bool exactDir)
     {
         const byte Front = 4;
         exactDir = true;
-        if (AssetCatalog.TryGet($"avatar/{part}/{model}_{baseDir}_{action}_0") is { } a) return a;
+        // 그 방향+그 동작의 그 프레임 → 같은 동작의 0번 프레임(2프레임 중 하나만 있어도 돌아간다)
+        if (AssetCatalog.TryGet($"avatar/{part}/{model}_{baseDir}_{action}_{frame}") is { } a) return a;
+        if (frame != 0 && AssetCatalog.TryGet($"avatar/{part}/{model}_{baseDir}_{action}_0") is { } a0) return a0;
         if (AssetCatalog.TryGet($"avatar/{part}/{model}_{baseDir}_stand_0") is { } b) return b;
 
         exactDir = false;
         if (baseDir == Front) return null;                 // 정면인데 없으면 더 볼 것도 없다
-        return AssetCatalog.TryGet($"avatar/{part}/{model}_{Front}_{action}_0")
+        return AssetCatalog.TryGet($"avatar/{part}/{model}_{Front}_{action}_{frame}")
+            ?? AssetCatalog.TryGet($"avatar/{part}/{model}_{Front}_{action}_0")
             ?? AssetCatalog.TryGet($"avatar/{part}/{model}_{Front}_stand_0");
     }
 
     // ================= 고양이 그리기 =================
     public override void _Draw()
     {
+        // 그림자는 **도트 모드에서도** 그린다. 없으면 발이 바닥에 닿아 보이지 않아 떠다니는 느낌이 난다.
+        // 걸을 때 몸이 뜨는 만큼 조금 작아지고 옅어져서, 한 칸에 한 걸음 딛는 리듬이 바닥에도 드러난다.
+        float lift = _moving && _action == "walk" ? Mathf.Sin(Mathf.Pi * _t) : 0f;
+        float sx = 11f - lift * 2f, sy = 4.5f - lift * 0.8f;
+        DrawColoredPolygon(Ellipse(0, 1, sx, sy), new Color(0, 0, 0, 0.22f - lift * 0.05f));
+
         if (!_placeholder) return;
 
         bool sit = _action == "sit";
@@ -301,7 +345,6 @@ public partial class AvatarView : Node2D
         int facing = _dir switch { 3 or 4 or 5 => 2, 2 or 6 => 1, _ => 0 };   // 2=정면 1=측면 0=뒷모습
         float side = _dir is 2 or 1 or 3 ? 1f : -1f;                          // 측면일 때 바라보는 쪽
 
-        DrawColoredPolygon(Ellipse(0, 1, 11, 4.5f), new Color(0, 0, 0, 0.22f));   // 그림자
         DrawTail(y0, sit, line);
 
         // ----- 다리 -----

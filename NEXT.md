@@ -40,6 +40,27 @@
 - [ ] Supabase 에서 `SELECT * FROM gift_log ORDER BY id DESC LIMIT 5;` 로 기록이 쌓였는지
 - [ ] 상점 목록에 **캣닢 잎이 안 보이는지**(0루피 구매 구멍을 막았음).
 
+### 나중에 할 것 — 마트 · 게임방 (2026-09-18, 에셋 시트 기준)
+
+`art/ref/묘항-숏 이소메트릭 에셋시트.png` 에 필요한 가구가 **이미 다 있다**(진열대·카운터·포스터·입구 아치·벽 선반).
+
+**⚠ 먼저 막아야 할 구멍**: 공용 방은 지금 **누구나 가구를 놓고 주울 수 있다**(`RoomInstance.CanEdit` 이 `Kind == "public"` 이면 true).
+마트를 그대로 열면 방문자가 진열대를 주워 간다. `RoomDef` 에 `locked: true` 를 넣고 `CanEdit` 에서 걸러야 한다.
+
+**① 마트(기획전) — 데이터가 8할**
+- 공용 방 `data/rooms/mart.json` + 진열대 여러 개 배치. `locked: true`.
+- 새 가구: `shop_shelf`(`interaction: "shop"`, 파는 상품을 `extra` 에), `shop_counter`, `poster_myohang`, `entry_arch`.
+- **NPC 를 따로 만들 필요가 없다** — 시트의 카운터 그림에 점원 고양이가 들어 있으니, 그 가구를 클릭하면 상점 창이 열리게 하면 된다.
+  (진짜 NPC 엔티티는 경로·동기화가 붙어 규모가 커진다. 나중에.)
+- 서버 작업은 작다: 진열대 클릭 → 기존 `C_BuyCatalog` 를 그 상품으로 호출.
+- **기획전 교체 = 방 JSON 의 진열 목록만 수정.** 나중에 관리자 화면에서 바꾸게 하면 그대로 이어진다.
+
+**② 게임방 + 오목**
+- 공용 방 `data/rooms/gameroom.json`, `locked: true`. 오목판 가구 + 마주 앉는 자리 두 개.
+- 프로토콜 **자리가 이미 비어 있다**: `C_MinigameJoin` `C_MinigameInput` `S_MinigameEvent`.
+- 승패 판정은 `Lottery`·`Trade` 처럼 **`Harbor.Core` 의 순수 함수**로 짜고 단위 테스트로 굳힌다(15×15, 5목, 금수 없음).
+- 채팅이 이미 방 단위라 **관전과 대화가 공짜로 따라온다** — 이게 사교 공간으로서의 값어치다.
+
 ### 나중에 할 것 — 공간 확장 (2026-09-18 요청)
 - **바닥·벽 색 바꾸기** ⭐ 먼저 — `RoomDto.WallStyle`/`FloorStyle` 은 **이미 오고 있다**(벽은 색이 적용 중, 바닥은 클라가 무시).
   방마다 저장되게만 하면 된다: `room` 테이블에 컬럼 2개(⚠ `Db.AddMissingColumns` 에도 추가) + 꾸미기 UI + 서버 검증(허용 목록).

@@ -10,7 +10,7 @@ namespace HarborClient;
 /// </summary>
 public partial class HudView : CanvasLayer
 {
-    private enum Win { None, Bag, Shop, Rooms, Postit, Lottery, Figure }
+    private enum Win { None, Bag, Shop, Rooms, Postit, Lottery, Figure, Style }
 
     private RoomView _room = null!;
 
@@ -19,7 +19,7 @@ public partial class HudView : CanvasLayer
     private Control _top = null!; private Label _roomLabel = null!; private PanelContainer _modeCard = null!; private Label _modeLabel = null!;
     private Control _wallet = null!; private Label _walletLabel = null!;
     private Control _bottom = null!; private HangulInput _chat = null!; private RichTextLabel _log = null!;
-    private Button _bagBtn = null!, _shopBtn = null!, _roomsBtn = null!, _lottoBtn = null!, _figureBtn = null!, _cancelBuild = null!;
+    private Button _bagBtn = null!, _shopBtn = null!, _roomsBtn = null!, _lottoBtn = null!, _figureBtn = null!, _styleBtn = null!, _cancelBuild = null!;
     private readonly List<string> _lottoLog = new();
     private long _lottoPrice = 10;   // 서버 결과(S_LotteryResult.Price)로 갱신됨
     private PanelContainer _win = null!; private Label _winTitle = null!; private VBoxContainer _winBody = null!; private Win _open = Win.None;
@@ -40,7 +40,7 @@ public partial class HudView : CanvasLayer
 
         _room.PhaseChanged += OnPhase;
         _room.Status += OnStatus;
-        _room.RoomChanged += OnRoomChanged;
+        _room.RoomChanged += OnRoomChanged;   // 방 바닥·벽이 바뀔 때도 이 이벤트가 온다(창이 열려 있으면 다시 그린다)
         _room.ChatLine += OnChatLine;
         _room.BuildModeChanged += OnBuildMode;
         _room.WalletChanged += () => { _walletLabel.Text = $"루피 {_room.Rupee:N0}"; if (_open is Win.Shop or Win.Lottery or Win.Rooms) QueueRender(); };
@@ -196,7 +196,8 @@ public partial class HudView : CanvasLayer
         _roomsBtn = Ui.Button("방 목록"); _roomsBtn.ToggleMode = true; _roomsBtn.Pressed += () => ToggleWindow(Win.Rooms);
         _lottoBtn = Ui.Button("복권"); _lottoBtn.ToggleMode = true; _lottoBtn.Pressed += () => ToggleWindow(Win.Lottery);
         _figureBtn = Ui.Button("외모"); _figureBtn.ToggleMode = true; _figureBtn.Pressed += () => ToggleWindow(Win.Figure);
-        row.AddChild(_bagBtn); row.AddChild(_shopBtn); row.AddChild(_roomsBtn); row.AddChild(_lottoBtn); row.AddChild(_figureBtn);
+        _styleBtn = Ui.Button("방 꾸미기"); _styleBtn.ToggleMode = true; _styleBtn.Pressed += () => ToggleWindow(Win.Style);
+        row.AddChild(_bagBtn); row.AddChild(_shopBtn); row.AddChild(_roomsBtn); row.AddChild(_lottoBtn); row.AddChild(_figureBtn); row.AddChild(_styleBtn);
         _cancelBuild = Ui.Button("배치 끝"); _cancelBuild.Visible = false;
         _cancelBuild.Pressed += () => _room.SetBuildMode(null);
         row.AddChild(_cancelBuild);
@@ -265,7 +266,7 @@ public partial class HudView : CanvasLayer
         _open = (w == Win.None || _open == w) ? Win.None : w;
         _bagBtn.ButtonPressed = _open == Win.Bag; _shopBtn.ButtonPressed = _open == Win.Shop;
         _roomsBtn.ButtonPressed = _open == Win.Rooms; _lottoBtn.ButtonPressed = _open == Win.Lottery;
-        _figureBtn.ButtonPressed = _open == Win.Figure;
+        _figureBtn.ButtonPressed = _open == Win.Figure; _styleBtn.ButtonPressed = _open == Win.Style;
         _win.Visible = _open != Win.None;
         if (_open == Win.Rooms) { _room.RequestRoomList(); _room.RequestHouseList(); }
         if (_open != Win.None) RenderWindow();   // 창을 여는 순간은 즉시 그린다(다음 프레임까지 빈 창을 보이지 않게)
@@ -301,6 +302,7 @@ public partial class HudView : CanvasLayer
             case Win.Postit: RenderPostit(); break;
             case Win.Lottery: RenderLottery(); break;
             case Win.Figure: RenderFigure(); break;
+            case Win.Style: RenderRoomStyle(); break;
         }
     }
 
@@ -319,6 +321,62 @@ public partial class HudView : CanvasLayer
         SwatchRow("하의", Ui.PantsColors, "lg");
         HatRow();
     }
+
+    // ---------------- 방 꾸미기 (바닥·벽) ----------------
+    /// <summary>
+    /// 스타일 id 는 서버와 공유한다(`Harbor.Core.RoomStyles`) — 서버가 검증하고 클라가 그린다.
+    /// 지금은 id 가 색 조합을 가리키지만, 타일 그림이 들어오면 같은 id 가 스프라이트를 가리키게 된다.
+    /// </summary>
+    private void RenderRoomStyle()
+    {
+        _winTitle.Text = "방 꾸미기";
+        if (!_room.CanEdit)
+        {
+            _winBody.AddChild(Note($"이 방은 {_room.RoomOwnerNick}님의 방이라 바꿀 수 없어요. 내 방이나 공용 방에서 해보세요.", Ui.Danger));
+            return;
+        }
+        _winBody.AddChild(Note("고르면 바로 반영되고 저장돼요. 방에 있는 사람들에게도 즉시 보입니다.", Ui.Muted));
+
+        _winBody.AddChild(Ui.Text("바닥", 12, Ui.Muted));
+        var floors = new HBoxContainer(); floors.AddThemeConstantOverride("separation", 4);
+        foreach (var id in RoomStyles.Floors)
+        {
+            var (a, _) = RoomView.FloorColors(id);
+            var b = Ui.Swatch(a, id == _room.RoomFloorStyle);
+            b.TooltipText = FloorName(id);
+            string pick = id;
+            b.Pressed += () => _room.SetRoomStyle(floor: pick);
+            floors.AddChild(b);
+        }
+        _winBody.AddChild(floors);
+
+        _winBody.AddChild(Ui.Text("벽", 12, Ui.Muted));
+        var walls = new HBoxContainer(); walls.AddThemeConstantOverride("separation", 4);
+        foreach (var id in RoomStyles.Walls)
+        {
+            var (_, north) = RoomView.WallColors(id);
+            var b = Ui.Swatch(north, id == _room.RoomWallStyle);
+            b.TooltipText = WallName(id);
+            string pick = id;
+            b.Pressed += () => _room.SetRoomStyle(wall: pick);
+            walls.AddChild(b);
+        }
+        _winBody.AddChild(walls);
+        _winBody.AddChild(Note("※ 아직 색만 바뀝니다. 타일 그림이 들어오면 같은 자리에서 무늬까지 바뀝니다.", Ui.Muted));
+    }
+
+    private static string FloorName(string id) => id switch
+    {
+        "floor_wood" => "나무 마루", "floor_carpet_blue" => "파란 카펫", "floor_carpet_moss" => "초록 카펫",
+        "floor_plank_warm" => "따뜻한 널판", "floor_stone" => "돌바닥", "floor_tile" => "체크 타일",
+        "floor_grass" => "잔디", "floor_deck_wood" => "갑판", _ => id,
+    };
+
+    private static string WallName(string id) => id switch
+    {
+        "wall_wood_01" => "나무 판자", "wall_plaster" => "회벽", "wall_brick" => "벽돌",
+        "wall_flower" => "꽃무늬 벽지", "wall_ship_rail" => "난간", _ => id,
+    };
 
     /// <summary>figure 의 한 파츠만 바꿔 서버로 보낸다. model·palette 가 둘 다 null 이면 그 파츠를 뺀다(모자 벗기).</summary>
     private void SetPart(string part, int? model, int? palette)

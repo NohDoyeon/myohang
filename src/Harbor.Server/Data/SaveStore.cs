@@ -61,6 +61,9 @@ public sealed class RoomSave
     public string TemplateId { get; set; } = "";
     public string Name { get; set; } = "";
     public string OwnerNick { get; set; } = "";
+    /// <summary>주인이 고른 바닥·벽. 비어 있으면 템플릿 기본값을 쓴다.</summary>
+    public string WallStyle { get; set; } = "";
+    public string FloorStyle { get; set; } = "";
     public List<ItemSave> Items { get; set; } = new();
 }
 
@@ -179,9 +182,14 @@ public sealed class SaveStore
     public RoomSave? GetRoom(string key) => _rooms.GetValueOrDefault(key);
     public IEnumerable<KeyValuePair<string, RoomSave>> AllRooms() => _rooms.ToArray();
 
-    public void UpdateRoom(string key, string templateId, string name, string ownerNick, List<ItemSave> items)
+    public void UpdateRoom(string key, string templateId, string name, string ownerNick, List<ItemSave> items,
+                           string wallStyle = "", string floorStyle = "")
     {
-        _rooms[key] = new RoomSave { TemplateId = templateId, Name = name, OwnerNick = ownerNick, Items = items };
+        _rooms[key] = new RoomSave
+        {
+            TemplateId = templateId, Name = name, OwnerNick = ownerNick, Items = items,
+            WallStyle = wallStyle, FloorStyle = floorStyle,
+        };
         lock (_dirtyLock) _dirtyRooms.Add(key);
     }
 
@@ -228,8 +236,12 @@ public sealed class SaveStore
             if (_users.TryGetValue((string)i.nick_key, out var u) && (int)i.qty > 0)
                 u.Inv[(string)i.furni_id] = (int)i.qty;
 
-        foreach (var r in conn.Query("SELECT room_key, template_id, name, owner_nick FROM room"))
-            _rooms[(string)r.room_key] = new RoomSave { TemplateId = (string)r.template_id, Name = (string)r.name, OwnerNick = (string)r.owner_nick };
+        foreach (var r in conn.Query("SELECT room_key, template_id, name, owner_nick, wall_style, floor_style FROM room"))
+            _rooms[(string)r.room_key] = new RoomSave
+            {
+                TemplateId = (string)r.template_id, Name = (string)r.name, OwnerNick = (string)r.owner_nick,
+                WallStyle = (string)r.wall_style, FloorStyle = (string)r.floor_style,
+            };
         foreach (var it in conn.Query("SELECT room_key, furni_id, x, y, dir, wall_u, wall_v, tilt, state, state_at, extra, author FROM room_item ORDER BY id"))
             if (_rooms.TryGetValue((string)it.room_key, out var room))
                 room.Items.Add(new ItemSave
@@ -311,13 +323,14 @@ public sealed class SaveStore
             {
                 if (!_rooms.TryGetValue(key, out var r)) continue;
                 conn.Execute("""
-                    INSERT INTO room (room_key, template_id, name, owner_nick, updated_at)
-                    VALUES (@key, @templateId, @name, @ownerNick, now())
+                    INSERT INTO room (room_key, template_id, name, owner_nick, wall_style, floor_style, updated_at)
+                    VALUES (@key, @templateId, @name, @ownerNick, @wallStyle, @floorStyle, now())
                     ON CONFLICT (room_key) DO UPDATE SET
                         template_id = EXCLUDED.template_id, name = EXCLUDED.name,
-                        owner_nick = EXCLUDED.owner_nick, updated_at = now()
+                        owner_nick = EXCLUDED.owner_nick, wall_style = EXCLUDED.wall_style,
+                        floor_style = EXCLUDED.floor_style, updated_at = now()
                     """,
-                    new { key, templateId = r.TemplateId, name = r.Name, ownerNick = r.OwnerNick }, tx);
+                    new { key, templateId = r.TemplateId, name = r.Name, ownerNick = r.OwnerNick, wallStyle = r.WallStyle, floorStyle = r.FloorStyle }, tx);
 
                 conn.Execute("DELETE FROM room_item WHERE room_key = @key", new { key }, tx);
                 foreach (var it in r.Items)

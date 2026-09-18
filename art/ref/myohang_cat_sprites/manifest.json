@@ -1,0 +1,436 @@
+{
+  "source": "/mnt/data/아트(1).png",
+  "source_size": [
+    1536,
+    1024
+  ],
+  "method": "largest connected alpha component inside each frame region; no scaling",
+  "actions": {
+    "stand": [
+      {
+        "index": 0,
+        "name": "dir0_back",
+        "file": "stand/00_dir0_back.png",
+        "source_rect": [
+          127,
+          63,
+          305,
+          305
+        ],
+        "opaque_component_pixels": 31036,
+        "output_size": [
+          178,
+          242
+        ]
+      },
+      {
+        "index": 1,
+        "name": "dir1_back_right",
+        "file": "stand/01_dir1_back_right.png",
+        "source_rect": [
+          411,
+          63,
+          563,
+          260
+        ],
+        "opaque_component_pixels": 20399,
+        "output_size": [
+          152,
+          197
+        ]
+      },
+      {
+        "index": 2,
+        "name": "dir2_right",
+        "file": "stand/02_dir2_right.png",
+        "source_rect": [
+          686,
+          79,
+          849,
+          306
+        ],
+        "opaque_component_pixels": 25978,
+        "output_size": [
+          163,
+          227
+        ]
+      },
+      {
+        "index": 3,
+        "name": "dir3_front_right",
+        "file": "stand/03_dir3_front_right.png",
+        "source_rect": [
+          942,
+          64,
+          1165,
+          315
+        ],
+        "opaque_component_pixels": 33600,
+        "output_size": [
+          223,
+          251
+        ]
+      },
+      {
+        "index": 4,
+        "name": "dir4_front",
+        "file": "stand/04_dir4_front.png",
+        "source_rect": [
+          1245,
+          61,
+          1424,
+          305
+        ],
+        "opaque_component_pixels": 31933,
+        "output_size": [
+          179,
+          244
+        ]
+      }
+    ],
+    "walk": [
+      {
+        "index": 0,
+        "name": "dir0_walk0",
+        "file": "walk/00_dir0_walk0.png",
+        "source_rect": [
+          90,
+          349,
+          205,
+          505
+        ],
+        "opaque_component_pixels": 13438,
+        "output_size": [
+          115,
+          156
+        ]
+      },
+      {
+        "index": 1,
+        "name": "dir0_walk1",
+        "file": "walk/01_dir0_walk1.png",
+        "source_rect": [
+          205,
+          349,
+          339,
+          505
+        ],
+        "opaque_component_pixels": 14812,
+        "output_size": [
+          134,
+          156
+        ]
+      },
+      {
+        "index": 2,
+        "name": "dir1_walk0",
+        "file": "walk/02_dir1_walk0.png",
+        "source_rect": [
+          375,
+          334,
+          500,
+          505
+        ],
+        "opaque_component_pixels": 15157,
+        "output_size": [
+          125,
+          171
+        ]
+      },
+      {
+        "index": 3,
+        "name": "dir1_walk1",
+        "file": "walk/03_dir1_walk1.png",
+        "source_rect": [
+          495,
+          349,
+          613,
+          505
+        ],
+        "opaque_component_pixels": 14245,
+        "output_size": [
+          118,
+          156
+        ]
+      },
+      {
+        "index": 4,
+        "name": "dir2_walk0",
+        "file": "walk/04_dir2_walk0.png",
+        "source_rect": [
+          653,
+          337,
+          786,
+          505
+        ],
+        "opaque_component_pixels": 14488,
+        "output_size": [
+          133,
+          168
+        ]
+      },
+      {
+        "index": 5,
+        "name": "dir2_walk1",
+        "file": "walk/05_dir2_walk1.png",
+        "source_rect": [
+          791,
+          335,
+          930,
+          505
+        ],
+        "opaque_component_pixels": 14852,
+        "output_size": [
+          139,
+          170
+        ]
+      },
+      {
+        "index": 6,
+        "name": "dir3_walk0",
+        "file": "walk/06_dir3_walk0.png",
+        "source_rect": [
+          930,
+          339,
+          1075,
+          505
+        ],
+        "opaque_component_pixels": 16122,
+        "output_size": [
+          145,
+          166
+        ]
+      },
+      {
+        "index": 7,
+        "name": "dir3_walk1",
+        "file": "walk/07_dir3_walk1.png",
+        "source_rect": [
+          1060,
+          341,
+          1186,
+          505
+        ],
+        "opaque_component_pixels": 15398,
+        "output_size": [
+          126,
+          164
+        ]
+      },
+      {
+        "index": 8,
+        "name": "dir4_walk0",
+        "file": "walk/08_dir4_walk0.png",
+        "source_rect": [
+          1223,
+          337,
+          1370,
+          505
+        ],
+        "opaque_component_pixels": 16940,
+        "output_size": [
+          147,
+          168
+        ]
+      },
+      {
+        "index": 9,
+        "name": "dir4_walk1",
+        "file": "walk/09_dir4_walk1.png",
+        "source_rect": [
+          1360,
+          341,
+          1504,
+          505
+        ],
+        "opaque_component_pixels": 15947,
+        "output_size": [
+          144,
+          164
+        ]
+      }
+    ],
+    "sit": [
+      {
+        "index": 0,
+        "name": "dir0_back",
+        "file": "sit/00_dir0_back.png",
+        "source_rect": [
+          139,
+          572,
+          270,
+          735
+        ],
+        "opaque_component_pixels": 16471,
+        "output_size": [
+          131,
+          163
+        ]
+      },
+      {
+        "index": 1,
+        "name": "dir1_back_right",
+        "file": "sit/01_dir1_back_right.png",
+        "source_rect": [
+          426,
+          563,
+          550,
+          735
+        ],
+        "opaque_component_pixels": 16653,
+        "output_size": [
+          124,
+          172
+        ]
+      },
+      {
+        "index": 2,
+        "name": "dir2_right",
+        "file": "sit/02_dir2_right.png",
+        "source_rect": [
+          705,
+          574,
+          820,
+          745
+        ],
+        "opaque_component_pixels": 14727,
+        "output_size": [
+          115,
+          171
+        ]
+      },
+      {
+        "index": 3,
+        "name": "dir3_front_right",
+        "file": "sit/03_dir3_front_right.png",
+        "source_rect": [
+          985,
+          573,
+          1122,
+          745
+        ],
+        "opaque_component_pixels": 17274,
+        "output_size": [
+          137,
+          172
+        ]
+      },
+      {
+        "index": 4,
+        "name": "dir4_front",
+        "file": "sit/04_dir4_front.png",
+        "source_rect": [
+          1263,
+          568,
+          1410,
+          745
+        ],
+        "opaque_component_pixels": 18432,
+        "output_size": [
+          147,
+          177
+        ]
+      }
+    ],
+    "sleep": [
+      {
+        "index": 0,
+        "name": "dir0_back",
+        "file": "sleep/00_dir0_back.png",
+        "source_rect": [
+          123,
+          783,
+          291,
+          948
+        ],
+        "opaque_component_pixels": 17526,
+        "output_size": [
+          168,
+          165
+        ]
+      },
+      {
+        "index": 1,
+        "name": "dir1_back_right",
+        "file": "sleep/01_dir1_back_right.png",
+        "source_rect": [
+          383,
+          796,
+          562,
+          916
+        ],
+        "opaque_component_pixels": 14429,
+        "output_size": [
+          179,
+          120
+        ]
+      },
+      {
+        "index": 2,
+        "name": "dir2_right",
+        "file": "sleep/02_dir2_right.png",
+        "source_rect": [
+          652,
+          799,
+          848,
+          950
+        ],
+        "opaque_component_pixels": 18795,
+        "output_size": [
+          196,
+          151
+        ]
+      },
+      {
+        "index": 3,
+        "name": "dir3_front_right",
+        "file": "sleep/03_dir3_front_right.png",
+        "source_rect": [
+          892,
+          789,
+          1027,
+          950
+        ],
+        "opaque_component_pixels": 13733,
+        "output_size": [
+          135,
+          161
+        ]
+      },
+      {
+        "index": 4,
+        "name": "dir4_front",
+        "file": "sleep/04_dir4_front.png",
+        "source_rect": [
+          1067,
+          797,
+          1216,
+          950
+        ],
+        "opaque_component_pixels": 15124,
+        "output_size": [
+          149,
+          153
+        ]
+      }
+    ],
+    "dance": [
+      {
+        "index": 0,
+        "name": "dir4_front",
+        "file": "dance/00_dir4_front.png",
+        "source_rect": [
+          1293,
+          767,
+          1458,
+          954
+        ],
+        "opaque_component_pixels": 18840,
+        "output_size": [
+          165,
+          187
+        ]
+      }
+    ]
+  }
+}

@@ -39,6 +39,9 @@ public partial class RoomView : Node2D
     public string UpgradeName { get; private set; } = "";
     public int RoomWidth { get; private set; }
     public int RoomHeight { get; private set; }
+    /// <summary>지금 방의 바닥·벽 스타일 id (꾸미기 창이 현재 선택을 표시하는 데 쓴다).</summary>
+    public string RoomWallStyle => _roomDto?.WallStyle ?? "";
+    public string RoomFloorStyle => _roomDto?.FloorStyle ?? "";
     /// <summary>공용 방은 누구나, 개인 방은 주인만 꾸밀 수 있다 (서버와 같은 규칙).</summary>
     public bool CanEdit => State == Phase.InRoom && (RoomKind == "public" || IsMyRoom);
     public int UserCount => _users.Count;
@@ -92,6 +95,7 @@ public partial class RoomView : Node2D
     private long _myId;
     private string _loginNotice = "";
     private (int x, int y) _myTile;
+    private RoomDto? _roomDto;                // 스타일만 바뀌었을 때 바닥·벽만 다시 그리려고 보관
     private long _pendingUse;                 // 도착 후 사용할 가구
     private bool _pendingOffer;               // 그게 '사용'이 아니라 '선물 꽂기'인가
     private string? _buildFurni; private byte _buildDir = 2; private bool _buildWall, _buildPostit;
@@ -233,6 +237,10 @@ public partial class RoomView : Node2D
     public void Buy(string furniId, int qty = 1) { if (State == Phase.InRoom) NetClient.Instance.Send(Opcode.C_BuyCatalog, new C_BuyCatalog { FurniId = furniId, Qty = qty }); }
     /// <summary>가방의 수확물을 판다. 값은 서버가 계산한다(묶음 먼저).</summary>
     public void Sell(string furniId, int qty = 1) { if (State == Phase.InRoom) NetClient.Instance.Send(Opcode.C_SellItem, new C_SellItem { FurniId = furniId, Qty = qty }); }
+    /// <summary>방 바닥·벽 바꾸기. 빈 문자열은 "그대로 두기".</summary>
+    public void SetRoomStyle(string wall = "", string floor = "")
+    { if (State == Phase.InRoom) NetClient.Instance.Send(Opcode.C_SetRoomStyle, new C_SetRoomStyle { Wall = wall, Floor = floor }); }
+
     /// <summary>내 방을 한 단계 넓힌다. 가구는 그대로 따라온다.</summary>
     public void UpgradeRoom() { if (State == Phase.InRoom) NetClient.Instance.Send(Opcode.C_UpgradeRoom, new Empty()); }
     public void DrawLottery() { if (State == Phase.InRoom) NetClient.Instance.Send(Opcode.C_LotteryDraw, new Empty()); }
@@ -367,6 +375,15 @@ public partial class RoomView : Node2D
                 _roomList.Clear(); _roomList.AddRange(Framing.Deserialize<S_RoomList>(body).Rooms);
                 RoomListChanged?.Invoke();
                 break;
+            case Opcode.S_RoomStyle:
+                var rst = Framing.Deserialize<S_RoomStyle>(body);
+                if (_roomDto is not null)
+                {
+                    _roomDto.WallStyle = rst.Wall; _roomDto.FloorStyle = rst.Floor;
+                    RebuildFloor();
+                    RoomChanged?.Invoke();
+                }
+                break;
             case Opcode.S_HouseList:
                 _houses.Clear(); _houses.AddRange(Framing.Deserialize<S_HouseList>(body).Houses);
                 HouseListChanged?.Invoke();
@@ -446,7 +463,7 @@ public partial class RoomView : Node2D
         foreach (var c in _wallLayer.GetChildren()) c.QueueFree();
         foreach (var c in FloorLayer.GetChildren()) c.QueueFree();
         foreach (var c in ObjectLayer.GetChildren()) c.QueueFree();
-        _items.Clear(); _users.Clear(); _ghost = null; _pendingUse = 0; _door = null; _doorTile = (-1, -1);
+        _items.Clear(); _users.Clear(); _ghost = null; _pendingUse = 0; _door = null; _doorTile = (-1, -1); _roomDto = null;
         _map = null; _walls = null; _wallSeg.Clear(); _hoverSlot = null; _cursor.Visible = false; _cursor.SetShape(null);
     }
 
@@ -458,9 +475,11 @@ public partial class RoomView : Node2D
         RoomId = s.Room.Id; RoomName = s.Room.Name; RoomOwnerNick = s.Room.OwnerNick; RoomKind = s.Room.Kind;
         UpgradePrice = s.Room.UpgradePrice; UpgradeName = s.Room.UpgradeName;
         RoomWidth = s.Room.Width; RoomHeight = s.Room.Height;
+        _tileSeconds = Mathf.Max(0.05f, s.Room.MoveMs / 1000f);
         // 방을 넓히면 방 id 가 바뀐다 — 로그인 때 받은 HomeRoomId 는 그 순간 옛것이 되므로 여기서 다시 잡는다.
         if (RoomKind != "public" && string.Equals(RoomOwnerNick, Login, StringComparison.OrdinalIgnoreCase)) HomeRoomId = RoomId;
         _doorTile = (s.Room.DoorX, s.Room.DoorY);
+        _roomDto = s.Room;
         BuildFloor(s.Room);
         foreach (var it in s.Items) AddItem(it);
         foreach (var u in s.Users) AddUser(u);
@@ -474,6 +493,21 @@ public partial class RoomView : Node2D
             : $"{RoomOwnerNick}님의 방 '{RoomName}'에 놀러 왔어요. 구경만 할 수 있어요.", true);
     }
 
+    /// <summary>
+    /// 바닥·벽만 다시 그린다(스타일이 바뀌었을 때). 가구·사람은 건드리지 않는다.
+    /// `QueueFree` 는 프레임 끝에 지우므로, 한 프레임 동안 옛 노드가 남아 겹쳐 보이지 않게 **먼저 떼어낸다.**
+    /// </summary>
+    private void RebuildFloor()
+    {
+        if (_roomDto is null || _map is null) return;
+        foreach (var c in _wallLayer.GetChildren()) { _wallLayer.RemoveChild(c); c.QueueFree(); }
+        foreach (var c in FloorLayer.GetChildren()) { FloorLayer.RemoveChild(c); c.QueueFree(); }
+        if (_door is not null && IsInstanceValid(_door)) { ObjectLayer.RemoveChild(_door); _door.QueueFree(); }
+        _door = null;
+        _wallSeg.Clear();
+        BuildFloor(_roomDto);
+    }
+
     /// <summary>벽(뒤쪽 두 면) + 바닥 타일 + 단차/받침(riser). 뒤(x+y 작음)부터 그려 앞 타일이 뒤 riser 를 자연스럽게 가린다.</summary>
     private void BuildFloor(RoomDto room)
     {
@@ -482,6 +516,7 @@ public partial class RoomView : Node2D
         tiles.Sort((a, b) => (a.x + a.y).CompareTo(b.x + b.y) != 0 ? (a.x + a.y).CompareTo(b.x + b.y) : a.x.CompareTo(b.x));
 
         var (westC, northC) = WallColors(room.WallStyle);
+        var (floorA, floorB) = FloorColors(room.FloorStyle);
         float wh = room.WallHeight * WallUnitPx;
         _wallH = wh; _wallRows = Math.Max(1, (int)room.WallHeight);
         float minX = float.MaxValue, minY = float.MaxValue, maxX = float.MinValue, maxY = float.MinValue;
@@ -501,7 +536,7 @@ public partial class RoomView : Node2D
 
             var spr = new Sprite2D { Texture = FloorTile, Position = top, Centered = false, Offset = new Vector2(-Iso.TileW / 2f, 0) };
             bool door = x == room.DoorX && y == room.DoorY;
-            spr.Modulate = door ? new Color(1f, 0.93f, 0.7f) : ((x + y) & 1) == 0 ? Colors.White : new Color(0.93f, 0.94f, 0.98f);
+            spr.Modulate = door ? new Color(1f, 0.93f, 0.7f) : ((x + y) & 1) == 0 ? floorA : floorB;
             FloorLayer.AddChild(spr);
 
             minX = Mathf.Min(minX, left.X); maxX = Mathf.Max(maxX, right.X);
@@ -519,10 +554,32 @@ public partial class RoomView : Node2D
         _cam.Position = new Vector2((minX + maxX) / 2f, (minY + maxY) / 2f + 20);
     }
 
-    private static (Color west, Color north) WallColors(string style)
-        => style.Contains("wood") ? (new Color("6e4a34"), new Color("8a5f42"))
-         : style.Contains("rail") ? (new Color("4a5a74"), new Color("5e7090"))
-         : (new Color("7a6e80"), new Color("948898"));
+    /// <summary>
+    /// 벽 스타일 → 두 면의 색. 서쪽 면이 조금 어둡다(왼쪽 위에서 빛이 온다는 가정).
+    /// 나중에 타일 그림이 들어오면 **같은 id 로 스프라이트를 고르게** 바뀐다.
+    /// </summary>
+    public static (Color west, Color north) WallColors(string style) => style switch
+    {
+        "wall_wood_01" => (new Color("6e4a34"), new Color("8a5f42")),
+        "wall_ship_rail" => (new Color("4a5a74"), new Color("5e7090")),
+        "wall_brick" => (new Color("8a4a42"), new Color("a65f54")),
+        "wall_flower" => (new Color("9a7a94"), new Color("b596ae")),
+        _ => (new Color("7a6e80"), new Color("948898")),          // wall_plaster (회벽)
+    };
+
+    /// <summary>바닥 스타일 → 체커 두 색. 타일 텍스처에 곱해진다.</summary>
+    public static (Color a, Color b) FloorColors(string style) => style switch
+    {
+        "floor_wood" => (new Color("c89a6a"), new Color("b88a5e")),
+        "floor_carpet_blue" => (new Color("aebcd8"), new Color("9fb0cf")),
+        "floor_carpet_moss" => (new Color("a8c49a"), new Color("9ab88c")),
+        "floor_plank_warm" => (new Color("d8b48c"), new Color("c8a47e")),
+        "floor_stone" => (new Color("b4b0a8"), new Color("a6a29a")),
+        "floor_tile" => (new Color("f0ece4"), new Color("cfd6de")),
+        "floor_grass" => (new Color("8cbf70"), new Color("7eb264")),
+        "floor_deck_wood" => (new Color("c0a074"), new Color("b09066")),
+        _ => (Colors.White, new Color(0.93f, 0.94f, 0.98f)),
+    };
 
     /// <summary>모서리 a→b 위로 wh 만큼 올라가는 벽 면 + 윗선 + 걸레받이.</summary>
     private void AddWall(Vector2 a, Vector2 b, float wh, Color color)
@@ -647,10 +704,14 @@ public partial class RoomView : Node2D
     }
     private void RemoveItem(long id) { if (_items.Remove(id, out var n)) n.QueueFree(); }
 
+    /// <summary>한 칸 걷는 시간(초). 서버가 스냅샷으로 알려 준다 — 어긋나면 도착할 때마다 멈칫한다.</summary>
+    private float _tileSeconds = 0.24f;
+
     private void AddUser(UserDto u)
     {
         if (_users.Remove(u.Id, out var old)) old.QueueFree();
         var node = AvatarScene.Instantiate<AvatarView>();
+        node.TileSeconds = _tileSeconds;      // 서버 걸음 간격과 맞춰야 도착 때 멈칫하지 않는다
         node.Bind(u);
         var (sx, sy) = Iso.ToScreen(u.X + 0.5f, u.Y + 0.5f, u.Z);
         node.Position = new Vector2(sx, sy);

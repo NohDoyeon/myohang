@@ -6,6 +6,12 @@ public sealed class ServerOptions
     /// <summary>랜딩 페이지 + 로그인 API 포트.</summary>
     public int WebPort { get; set; } = 8080;
     public int TickMs { get; set; } = 60;
+    /// <summary>
+    /// 한 칸 걷는 데 드는 틱 수. 틱은 60ms 로 촘촘히 돌리되(반응이 빨라야 하므로) **걸음은 그보다 느리게** 뗀다.
+    /// 1이면 초당 16칸이라 미끄러지듯 순간이동한다. 4 = 240ms/칸 정도가 걷는 것처럼 보인다.
+    /// 클라이언트는 이 값을 스냅샷(`RoomDto.MoveMs`)으로 받아 보간 속도를 맞춘다 — 어긋나면 도착 후 멈칫한다.
+    /// </summary>
+    public int MoveTicks { get; set; } = 4;
     public int MaxSessions { get; set; } = 500;
     /// <summary>
     /// 게임 시작 화면에서 처음 보는 닉으로 그 자리에서 가입시킬지. **테스트 편의용으로만 켠다.**

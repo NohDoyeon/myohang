@@ -17,23 +17,25 @@ public static class SpritePalette
     // 그러면 "내 고양이를 닮게" 만들 수가 없다. 흰 바탕 + 검정 무늬, 크림 바탕 + 주황 무늬처럼
     // **조합**이 되어야 한다.
 
-    /// <summary>털 바탕 — 밝은 크림 4색. figure `hd`.</summary>
-    public static readonly Color[] Base =
-    {
-        new("fcf0e1"), new("fcf0e3"), new("fdf3e8"), new("f3e2d2"),
-    };
+    // 색 목록은 `py tools/atlas-palette.py` 로 **현재 아틀라스에서 직접** 뽑는다.
+    // 그림을 새로 넣으면 색이 통째로 바뀌므로 반드시 다시 뽑아 이 표를 갱신할 것 —
+    // 표와 그림이 어긋나면 일부 색만 바뀌어 **얼룩**으로 보인다(2026-09-18 에 실제로 겪음).
 
-    /// <summary>무늬 — 태비 줄무늬와 음영 5색. figure `hr`.</summary>
+    /// <summary>털 바탕 — 밝은 크림. figure `hd`.</summary>
+    public static readonly Color[] Base = { new("fbeee0"), new("e9cebc") };
+
+    /// <summary>무늬 — 태비 줄무늬와 음영. figure `hr`. 양자화가 비슷한 색을 여럿 남겨 두어 개수가 많다.</summary>
     public static readonly Color[] Markings =
     {
-        new("dbbba4"), new("e6b9a3"), new("d8a786"), new("cd9d7d"), new("a47462"),
+        new("d4a180"), new("c78f73"), new("ce9979"), new("d29c7b"),
+        new("cf9c79"), new("cf9c7b"), new("cf9c7a"), new("b38268"), new("9f6f59"),
     };
 
     /// <summary>상의 — 밝은 면과 그늘. figure `ch`.</summary>
-    public static readonly Color[] Shirt = { new("a0afce"), new("958c9a") };
+    public static readonly Color[] Shirt = { new("818ba3"), new("6a5b5f") };
 
-    /// <summary>귀 안쪽 한 색. figure `ea`.</summary>
-    public static readonly Color[] Ear = { new("e29f8b") };
+    /// <summary>귀 안쪽처럼 작은 면. figure `ea`.</summary>
+    public static readonly Color[] Ear = { new("b1a09c"), new("ad9c99") };
 
     // 눈은 표에 없다. `5b4854` 를 바꿔 봤지만 **화면에서 아무 변화가 없었다**(2026-09-18 확인) —
     // 눈동자가 외곽선(503433)과 같은 색으로 찍혀 있어서, 그걸 바꾸면 선까지 같이 물들어 얼굴이 무너진다.
@@ -65,7 +67,7 @@ public static class SpritePalette
         foreach (var c in Base) v[n++] = Rgb(Ramp(c, Base, baseColor));
         foreach (var c in Markings) v[n++] = Rgb(Ramp(c, Markings, markings));
         foreach (var c in Shirt) v[n++] = Rgb(Ramp(c, Shirt, shirt));
-        foreach (var _ in Ear) v[n++] = Rgb(ear);        // 한 색짜리는 사다리를 만들 것이 없다
+        foreach (var c in Ear) v[n++] = Rgb(Ramp(c, Ear, ear));
         return v;
     }
 

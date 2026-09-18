@@ -48,6 +48,8 @@ public sealed class RoomUser
 {
     public Session S = null!; public int X, Y; public float Z; public byte Dir; public string Action = "stand";
     public Queue<(int x, int y)> Path = new();
+    /// <summary>걸음 간격 세기. 길을 받을 때 거의 다 채워 두어 **첫 걸음은 바로** 나가게 한다.</summary>
+    public int StepTicks;
     /// <summary>인기도는 세션이 아니라 저장소가 가진 값이라(남이 올려 준다) 바깥에서 넣어 준다.</summary>
     public UserDto ToDto(int fame = 0) => new() { Id = S.UserId, Nick = S.Nick, Figure = S.Figure, X = (short)X, Y = (short)Y, Z = Z, Dir = Dir, Action = Action, Fame = fame };
 }
@@ -63,6 +65,11 @@ public sealed class RoomInstance
     public string OwnerNick { get; }
     public int UserCount => Volatile.Read(ref _userCount);
 
+    /// <summary>주인이 고른 바닥·벽. 비어 있으면 템플릿 기본값을 쓴다(그래서 문자열로 둔다).</summary>
+    private string _wallStyle = "", _floorStyle = "";
+    public string WallStyle => _wallStyle.Length > 0 ? _wallStyle : Def.Wall.Style;
+    public string FloorStyle => _floorStyle.Length > 0 ? _floorStyle : Def.Floor.Style;
+
     private readonly Heightmap _map;
     private readonly Walls _walls;
     private readonly DefinitionStore _defs;
@@ -73,6 +80,7 @@ public sealed class RoomInstance
     private readonly Dictionary<(int, int), RoomItem> _solidAt = new();
     private static long _nextItemId = 1;
     private readonly int _tickMs;
+    private readonly int _moveTicks;
     private readonly SaveStore? _save;
     private readonly EconomyOptions _eco;
     private int _userCount;
@@ -80,11 +88,14 @@ public sealed class RoomInstance
     /// <summary>인기도는 저장소가 가진 값이다(주인이 접속 중이 아니어도 올라간다).</summary>
     private int FameOf(string nick) => _save?.FameOf(nick) ?? 0;
 
-    public RoomInstance(long id, RoomDef def, DefinitionStore defs, int tickMs, ILogger log,
+    public RoomInstance(long id, RoomDef def, DefinitionStore defs, int tickMs, int moveTicks, ILogger log,
                         long ownerId = 0, string ownerNick = "", string? name = null,
-                        SaveStore? save = null, IReadOnlyList<ItemSave>? seed = null, EconomyOptions? eco = null)
+                        SaveStore? save = null, IReadOnlyList<ItemSave>? seed = null, EconomyOptions? eco = null,
+                        string wallStyle = "", string floorStyle = "")
     {
-        Id = id; Def = def; _defs = defs; _tickMs = tickMs; _log = log; _save = save; _eco = eco ?? new EconomyOptions();
+        Id = id; Def = def; _defs = defs; _tickMs = tickMs; _moveTicks = Math.Max(1, moveTicks);
+        _log = log; _save = save; _eco = eco ?? new EconomyOptions();
+        RestoreStyles(wallStyle, floorStyle);
         OwnerId = ownerId; OwnerNick = ownerNick; Name = name ?? def.Name;
         _map = new Heightmap(def.Heightmap);
         _walls = new Walls(_map);
@@ -171,7 +182,40 @@ public sealed class RoomInstance
     private void SaveRoom()
     {
         if (_closed) return;
-        _save?.UpdateRoom(SaveKey, Def.RoomId, Name, OwnerNick, _items.Values.Select(i => i.ToSave()).ToList());
+        _save?.UpdateRoom(SaveKey, Def.RoomId, Name, OwnerNick, _items.Values.Select(i => i.ToSave()).ToList(), _wallStyle, _floorStyle);
+    }
+
+    /// <summary>저장본에서 되살릴 때 (생성자에서만).</summary>
+    private void RestoreStyles(string wall, string floor)
+    {
+        if (RoomStyles.IsWall(wall)) _wallStyle = wall;
+        if (RoomStyles.IsFloor(floor)) _floorStyle = floor;
+    }
+
+    /// <summary>
+    /// 바닥·벽 바꾸기. 방을 꾸밀 수 있는 사람만(공용 방은 누구나, 개인 방은 주인).
+    /// 빈 문자열은 "그대로 두기"다 — 한 항목만 바꿔도 다른 쪽이 초기화되지 않는다.
+    /// </summary>
+    private void OnSetStyle(Session s, string wall, string floor)
+    {
+        if (!_users.ContainsKey(s.UserId)) return;
+        if (!CanEdit(s)) { s.Send(Opcode.S_Error, new S_Error { Code = 22, Message = "not your room" }); return; }
+
+        bool changed = false;
+        if (wall.Length > 0)
+        {
+            if (!RoomStyles.IsWall(wall)) { s.Send(Opcode.S_Error, new S_Error { Code = 41, Message = "unknown style" }); return; }
+            if (wall != WallStyle) { _wallStyle = wall; changed = true; }
+        }
+        if (floor.Length > 0)
+        {
+            if (!RoomStyles.IsFloor(floor)) { s.Send(Opcode.S_Error, new S_Error { Code = 41, Message = "unknown style" }); return; }
+            if (floor != FloorStyle) { _floorStyle = floor; changed = true; }
+        }
+        if (!changed) return;
+
+        Broadcast(Opcode.S_RoomStyle, new S_RoomStyle { Wall = WallStyle, Floor = FloorStyle });
+        SaveRoom();
     }
 
     public void Post(RoomCommand cmd) => _inbox.Writer.TryWrite(cmd);
@@ -217,6 +261,7 @@ public sealed class RoomInstance
             case RoomCommand.PickItem c: OnPick(c.S, c.ItemId); break;
             case RoomCommand.UseItem c: OnUse(c.S, c.ItemId); break;
             case RoomCommand.OfferItem c: OnOffer(c.S, c.ItemId); break;
+            case RoomCommand.SetStyle c: OnSetStyle(c.S, c.Wall, c.Floor); break;
             case RoomCommand.PostitWrite c: OnPostitWrite(c.S, c.ItemId, c.Body); break;
             case RoomCommand.ItemTimer c: OnItemTimer(c.ItemId, c.ExpectedState); break;
             case RoomCommand.Evacuate c: OnEvacuate(c.Target, c.Reason); break;
@@ -243,10 +288,10 @@ public sealed class RoomInstance
             Room = new RoomDto
             {
                 Id = Id, TemplateId = Def.RoomId, Name = Name, Heightmap = Def.Heightmap,
-                DoorX = (short)Def.Door.X, DoorY = (short)Def.Door.Y, WallStyle = Def.Wall.Style, FloorStyle = Def.Floor.Style,
+                DoorX = (short)Def.Door.X, DoorY = (short)Def.Door.Y, WallStyle = WallStyle, FloorStyle = FloorStyle,
                 WallHeight = (byte)Math.Clamp(Def.Wall.Height, 0, 8), OwnerId = OwnerId, OwnerNick = OwnerNick, Kind = Def.Kind,
                 UpgradePrice = NextTemplate is null ? 0 : Def.UpgradePrice, UpgradeName = NextTemplate?.Name ?? "",
-                Width = _map.W, Height = _map.H,
+                Width = _map.W, Height = _map.H, MoveMs = _tickMs * _moveTicks,
             },
             Items = _items.Values.Select(i => i.ToDto()).ToList(),
             Users = _users.Values.Select(x => x.ToDto(FameOf(x.S.Nick))).ToList()
@@ -326,16 +371,19 @@ public sealed class RoomInstance
         var path = AStar.Find(_map, IsBlocked, (u.X, u.Y), (x, y));
         if (path.Count < 2) return;
         u.Path = new Queue<(int, int)>(path.Skip(1));
+        u.StepTicks = Math.Max(0, _moveTicks - 1);   // 첫 걸음은 다음 틱에 바로 (클릭 반응이 굼뜨지 않게)
         u.Action = "walk";
         Broadcast(Opcode.S_UserPath, new S_UserPath { UserId = s.UserId, Path = path.Skip(1).Select(p => new TilePos { X = (short)p.x, Y = (short)p.y }).ToList() });
     }
 
     private void OnTick()
     {
-        // 1틱 = 1타일 진행 (클라이언트는 보간). 보행 완료 시 seat 판정.
+        // 틱은 촘촘하게(반응), 걸음은 그보다 느리게(자연스러움). 클라이언트는 그 사이를 보간한다.
         foreach (var u in _users.Values)
         {
-            if (u.Path.Count == 0) continue;
+            if (u.Path.Count == 0) { u.StepTicks = 0; continue; }
+            if (++u.StepTicks < _moveTicks) continue;
+            u.StepTicks = 0;
             var next = u.Path.Dequeue();
             u.Dir = (byte)Iso.DirectionBetween((u.X, u.Y), next);
             u.X = next.x; u.Y = next.y; u.Z = _map.Height(u.X, u.Y);

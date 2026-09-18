@@ -112,6 +112,8 @@ public static class Db
                 template_id TEXT NOT NULL,
                 name        TEXT NOT NULL,
                 owner_nick  TEXT NOT NULL DEFAULT '',
+                wall_style  TEXT NOT NULL DEFAULT '',   -- 비면 템플릿 기본값
+                floor_style TEXT NOT NULL DEFAULT '',
                 updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
             );
 
@@ -164,6 +166,8 @@ public static class Db
     private static void AddMissingColumns(NpgsqlConnection conn) => conn.Execute("""
         ALTER TABLE account ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'user';
         ALTER TABLE player  ADD COLUMN IF NOT EXISTS fame INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE room    ADD COLUMN IF NOT EXISTS wall_style  TEXT NOT NULL DEFAULT '';
+        ALTER TABLE room    ADD COLUMN IF NOT EXISTS floor_style TEXT NOT NULL DEFAULT '';
         """);
 
     /// <summary>

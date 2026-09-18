@@ -17,6 +17,8 @@ public abstract record RoomCommand
     public sealed record UseItem(Session S, long ItemId) : RoomCommand;
     /// <summary>남의 방 화분에 캣닢을 꽂는다(선물). 배치가 아니라 이미 놓인 가구에 대한 상호작용이다.</summary>
     public sealed record OfferItem(Session S, long ItemId) : RoomCommand;
+    /// <summary>방 바닥·벽 바꾸기. 빈 문자열은 "그대로 두기".</summary>
+    public sealed record SetStyle(Session S, string Wall, string Floor) : RoomCommand;
     public sealed record PostitWrite(Session S, long ItemId, string Body) : RoomCommand;
     /// <summary>방을 넓혀 새 인스턴스로 갈아탈 때 — 안에 있던 사람을 전부 Target 으로 옮긴다.</summary>
     public sealed record Evacuate(RoomInstance Target, string Reason) : RoomCommand;

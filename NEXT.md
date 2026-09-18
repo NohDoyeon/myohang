@@ -3,7 +3,9 @@
 > 터미널을 새로 열면 이 파일부터 읽는다. 상세 이력은 `WORKLOG.md`.
 > 위치: `C:\Users\User\Desktop\harbor` (Harbor.sln 있는 폴더). 제품명 **팝플(Popple)**, 코드명 Harbor.
 
-## 지금 상태 — 13차까지 (2026-09-18). 출석·팔기·방 넓히기·이사 — **빌드/테스트 통과, 눈 확인 대기**
+## 지금 상태 — 13차까지 (2026-09-18). 출석·팔기·방 넓히기·이사 — **빌드/테스트 통과 + 눈 확인 완료**
+
+> 2026-09-18: Supabase Postgres 위에서 실제 플레이로 정상 동작 확인. 다음은 **배포**(클라 내보내기 → 서버 외부 공개 → 다른 PC 접속).
 
 ### 한눈에
 - **묘항(Myohang)** = 고양이 묘 + 항구 항. 두 발로 다니는 고양이들이 사는 항구 마을.
@@ -49,6 +51,17 @@
 ```
 웹에서 가입·로그인 → [게임 시작] → 클라이언트 자동 실행. 입장권 코드에 **서버 주소가 함께** 실린다.
 `HARBOR_DB` 가 없으면 서버는 기동하지 않고 안내만 하고 끝난다(빈 값으로 도는 사고 방지).
+
+### 저장소 (2026-09-18~)
+**https://github.com/NohDoyeon/myohang** (public). 원격은 `https://NohDoyeon@github.com/...` 형태로 박아 두었다 —
+이 PC 에 회사 계정(`NohDoyeon241104`) 자격증명이 캐시돼 있어서, 계정명을 URL 에 넣지 않으면 403 이 난다.
+커밋 정체성도 **이 저장소 안에서만** 개인 계정으로 설정돼 있다(`git config user.email`, `--global` 아님).
+
+작업 후 루틴:
+```
+! cd /c/Users/User/Desktop/harbor && git add -A && bash tools/check-secrets.sh && git commit -m "무엇을 왜" && git push
+```
+pre-commit 훅이 한 번 더 검사한다. **커밋 목록에 `saves/`·`.env`·`*.log` 가 없는지 눈으로 확인할 것.**
 
 ### 배포 (10명 MVP 테스트)
 `docs/deploy-mvp.md` — GitHub 올리기 · 클라 exe 내보내기 · 서버 외부 공개 · 백업.

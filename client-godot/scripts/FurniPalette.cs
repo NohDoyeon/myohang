@@ -10,7 +10,7 @@ namespace HarborClient;
 public static class FurniPalette
 {
     /// <summary>placeholder 로 어떤 모양을 그릴지. 아틀라스가 들어오면 전부 스프라이트로 대체된다.</summary>
-    public enum Shape { Box, Chair, Table, Rug, Plant, Flower, Lamp, Can, Panel, Window, Frame, Clock, Postit }
+    public enum Shape { Box, Chair, Table, Rug, Plant, Flower, Lamp, Can, Panel, Window, Frame, Clock, Postit, Planter }
 
     public sealed record Entry(string Id, string Name, int HeightPx, Color Tint, Shape Shape = Shape.Box);
 
@@ -26,6 +26,7 @@ public static class FurniPalette
         new("plant_pot",     "화분",          30, new("649658"), Shape.Plant),
         new("flower_pot",    "캣닢 화분",     30, new("649658"), Shape.Plant),
         new("flower_cut",    "캣닢 잎",       18, new("7fbf5c"), Shape.Flower),
+        new("gift_planter",  "선물 화분",     34, new("6fae52"), Shape.Planter),
         new("lamp_floor",    "스탠드 조명",   38, new("e6b432"), Shape.Lamp),
         new("cola_can",      "우유팩",        10, new("f6f2e8"), Shape.Can),   // id 는 저장 호환 때문에 유지
         new("cola_machine",  "우유 자판기",   44, new("6f93b8")),
@@ -53,6 +54,12 @@ public static class FurniPalette
         "sprout" => "새싹",
         "bud" => "꽃봉오리",
         "bloom" => "활짝!",
+        // 선물 화분 — 시간이 아니라 사람이 채운다. ("empty" 는 빈 우유팩이 이미 쓰고 있어 "bare" 를 쓴다)
+        "bare" => "빈 화분",
+        "few" => "조금 모임",
+        "half" => "자라는 중",
+        "almost" => "거의 다!",
+        "full" => "가득! 수확 가능",
         _ => "",
     };
 

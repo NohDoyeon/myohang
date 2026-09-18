@@ -16,6 +16,11 @@ public sealed class UserSave
     public string LastAllowance { get; set; } = "";
     /// <summary>연속 출석 일수. LastAllowance 와 짝이다.</summary>
     public int Streak { get; set; }
+    /// <summary>
+    /// 인기도 — 내 화분에 남들이 꽂아 준 캣닢의 누적 개수. 화분을 팔아도 줄지 않는다.
+    /// **오직 SaveStore.AddFame 만 이 값을 바꾼다**(주인이 접속 중이 아닐 수도 있으므로 세션에 두지 않는다).
+    /// </summary>
+    public int Fame { get; set; }
     /// <summary>아바타 외모 (Harbor.Core.Figure 형식). 비어 있으면 기본 외모.</summary>
     public string Figure { get; set; } = "";
     /// <summary>PBKDF2 소금(base64). 비어 있으면 아직 비밀번호가 없는 계정. **account 테이블 = 웹 소유.**</summary>
@@ -48,6 +53,9 @@ public sealed record CurrencyEntry(string Nick, long Delta, long Balance, string
 /// <summary>접속 기록 한 줄 (웹·게임 공통). 관리자 화면이 이걸 읽는다.</summary>
 public sealed record LoginEntry(string Nick, string Source, bool Ok, string Detail, string Ip, DateTime AtUtc);
 
+/// <summary>누가 누구의 화분에 캣닢을 꽂아 줬는지 한 줄.</summary>
+public sealed record GiftEntry(string Giver, string Owner, string RoomKey, DateTime AtUtc);
+
 public sealed class RoomSave
 {
     public string TemplateId { get; set; } = "";
@@ -79,6 +87,7 @@ public sealed class SaveStore
     private readonly HashSet<string> _dirtyRooms = new(StringComparer.Ordinal);
     private readonly List<CurrencyEntry> _currencyQueue = new();
     private readonly List<LoginEntry> _loginQueue = new();
+    private readonly List<GiftEntry> _giftQueue = new();
 
     public SaveStore(IOptions<SaveOptions> opt, ILogger<SaveStore> log)
     {
@@ -120,7 +129,8 @@ public sealed class SaveStore
         {
             Nick = prev?.Nick is { Length: > 0 } n ? n : nick,
             Rupee = rupee, Inv = new Dictionary<string, int>(inv), LastAllowance = lastAllowance, Figure = figure, Streak = streak,
-            Salt = prev?.Salt ?? "", Hash = prev?.Hash ?? "",
+            // 세션이 모르는 값들은 기존 것을 지킨다 — 비밀번호(웹 소유)와 인기도(남이 올려 주는 값).
+            Salt = prev?.Salt ?? "", Hash = prev?.Hash ?? "", Fame = prev?.Fame ?? 0,
         };
         lock (_dirtyLock) _dirtyUsers.Add(key);
     }
@@ -138,6 +148,31 @@ public sealed class SaveStore
         u.Salt = salt; u.Hash = hash;
         _users[key] = u;
         lock (_dirtyLock) { _dirtyAccounts.Add(key); _dirtyUsers.Add(key); }
+    }
+
+    /// <summary>
+    /// 인기도를 올린다(내리는 일은 없다). **주인이 접속 중이 아니어도 동작해야 하므로** 세션이 아니라 여기서 관리한다.
+    /// 반환값은 올린 뒤의 인기도. 계정이 없으면 0.
+    /// </summary>
+    public int AddFame(string nick, int delta)
+    {
+        if (string.IsNullOrWhiteSpace(nick) || delta == 0) return 0;
+        string key = Db.Key(nick);
+        var u = _users.GetValueOrDefault(key);
+        if (u is null) return 0;                       // 계정이 없는 닉 — 조용히 무시
+        u.Fame = Math.Max(0, u.Fame + delta);
+        lock (_dirtyLock) _dirtyUsers.Add(key);
+        return u.Fame;
+    }
+
+    /// <summary>인기도 읽기 (아바타 표시용).</summary>
+    public int FameOf(string nick) => _users.GetValueOrDefault(Db.Key(nick))?.Fame ?? 0;
+
+    /// <summary>누가 누구에게 캣닢을 꽂아 줬는지 남긴다(다음 flush 에 기록).</summary>
+    public void LogGift(string giver, string owner, string roomKey)
+    {
+        if (string.IsNullOrWhiteSpace(giver) || string.IsNullOrWhiteSpace(owner)) return;
+        lock (_dirtyLock) _giftQueue.Add(new GiftEntry(Db.Key(giver), Db.Key(owner), roomKey, DateTime.UtcNow));
     }
 
     // ---------------- 방 ----------------
@@ -177,7 +212,8 @@ public sealed class SaveStore
         foreach (var a in conn.Query("""
             SELECT a.nick_key, a.nick, a.salt, a.hash,
                    COALESCE(p.rupee, 0) AS rupee, COALESCE(p.figure, '') AS figure,
-                   COALESCE(p.last_allowance, '') AS last_allowance, COALESCE(p.streak, 0) AS streak
+                   COALESCE(p.last_allowance, '') AS last_allowance, COALESCE(p.streak, 0) AS streak,
+                   COALESCE(p.fame, 0) AS fame
             FROM account a LEFT JOIN player p ON p.nick_key = a.nick_key
             """))
         {
@@ -185,7 +221,7 @@ public sealed class SaveStore
             {
                 Nick = (string)a.nick, Salt = (string)a.salt, Hash = (string)a.hash,
                 Rupee = (long)a.rupee, Figure = (string)a.figure,
-                LastAllowance = (string)a.last_allowance, Streak = (int)a.streak,
+                LastAllowance = (string)a.last_allowance, Streak = (int)a.streak, Fame = (int)a.fame,
             };
         }
         foreach (var i in conn.Query("SELECT nick_key, furni_id, qty FROM inventory"))
@@ -213,17 +249,20 @@ public sealed class SaveStore
         string[] users, accounts, rooms;
         CurrencyEntry[] currency;
         LoginEntry[] logins;
+        GiftEntry[] gifts;
         lock (_dirtyLock)
         {
             if (_dirtyUsers.Count == 0 && _dirtyAccounts.Count == 0 && _dirtyRooms.Count == 0
-                && _currencyQueue.Count == 0 && _loginQueue.Count == 0 && !force) return;
+                && _currencyQueue.Count == 0 && _loginQueue.Count == 0 && _giftQueue.Count == 0 && !force) return;
             users = _dirtyUsers.ToArray(); _dirtyUsers.Clear();
             accounts = _dirtyAccounts.ToArray(); _dirtyAccounts.Clear();
             rooms = _dirtyRooms.ToArray(); _dirtyRooms.Clear();
             currency = _currencyQueue.ToArray(); _currencyQueue.Clear();
             logins = _loginQueue.ToArray(); _loginQueue.Clear();
+            gifts = _giftQueue.ToArray(); _giftQueue.Clear();
         }
-        if (users.Length == 0 && accounts.Length == 0 && rooms.Length == 0 && currency.Length == 0 && logins.Length == 0) return;
+        if (users.Length == 0 && accounts.Length == 0 && rooms.Length == 0
+            && currency.Length == 0 && logins.Length == 0 && gifts.Length == 0) return;
 
         try
         {
@@ -253,13 +292,14 @@ public sealed class SaveStore
                     """, new { key, nick = u.Nick.Length > 0 ? u.Nick : key }, tx);
 
                 conn.Execute("""
-                    INSERT INTO player (nick_key, rupee, figure, last_allowance, streak, updated_at)
-                    VALUES (@key, @rupee, @figure, @lastAllowance, @streak, now())
+                    INSERT INTO player (nick_key, rupee, figure, last_allowance, streak, fame, updated_at)
+                    VALUES (@key, @rupee, @figure, @lastAllowance, @streak, @fame, now())
                     ON CONFLICT (nick_key) DO UPDATE SET
                         rupee = EXCLUDED.rupee, figure = EXCLUDED.figure,
-                        last_allowance = EXCLUDED.last_allowance, streak = EXCLUDED.streak, updated_at = now()
+                        last_allowance = EXCLUDED.last_allowance, streak = EXCLUDED.streak,
+                        fame = EXCLUDED.fame, updated_at = now()
                     """,
-                    new { key, rupee = u.Rupee, figure = u.Figure, lastAllowance = u.LastAllowance, streak = u.Streak }, tx);
+                    new { key, rupee = u.Rupee, figure = u.Figure, lastAllowance = u.LastAllowance, streak = u.Streak, fame = u.Fame }, tx);
 
                 conn.Execute("DELETE FROM inventory WHERE nick_key = @key", new { key }, tx);
                 foreach (var (furniId, qty) in u.Inv)
@@ -299,6 +339,9 @@ public sealed class SaveStore
             foreach (var l in logins)
                 conn.Execute("INSERT INTO login_log (nick_key, source, ok, detail, ip, at) VALUES (@Nick, @Source, @Ok, @Detail, @Ip, @AtUtc)", l, tx);
 
+            foreach (var g in gifts)
+                conn.Execute("INSERT INTO gift_log (giver_key, owner_key, room_key, at) VALUES (@Giver, @Owner, @RoomKey, @AtUtc)", g, tx);
+
             tx.Commit();
         }
         catch (Exception ex)
@@ -311,6 +354,7 @@ public sealed class SaveStore
                 foreach (var k in rooms) _dirtyRooms.Add(k);
                 _currencyQueue.InsertRange(0, currency);
                 _loginQueue.InsertRange(0, logins);
+                _giftQueue.InsertRange(0, gifts);
             }
         }
     }

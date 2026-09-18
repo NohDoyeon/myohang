@@ -112,6 +112,7 @@ public partial class FurniSprite : Node2D
             case FurniPalette.Shape.Table: DrawTable(); break;
             case FurniPalette.Shape.Chair: DrawChair(); break;
             case FurniPalette.Shape.Plant: DrawPlant(); break;
+            case FurniPalette.Shape.Planter: DrawGiftPlanter(); break;
             case FurniPalette.Shape.Flower: DrawCutFlower(); break;
             case FurniPalette.Shape.Lamp: DrawLamp(); break;
             case FurniPalette.Shape.Can: DrawCan(); break;
@@ -204,6 +205,54 @@ public partial class FurniSprite : Node2D
         DrawLine(back + up, back + up - (back.X == 0 ? new Vector2(hw * 0.9f, 0) : new Vector2(0, hh * 0.9f)), Ui.Darken(_tint, 0.25f), 3f);
     }
 
+    /// <summary>
+    /// 선물 화분 — **남들이 꽂아 준 캣닢**이 쌓인 만큼 잎이 늘어난다(시간이 아니라 사람이 채운다).
+    /// 가득 차면 반짝임이 붙어 멀리서도 "이 집은 인기가 많다"가 보인다.
+    /// </summary>
+    private void DrawGiftPlanter()
+    {
+        DrawShadow(0.55f);
+        float potH = _heightPx * 0.34f;
+        var pot = new Vector2[] { new(-8, -potH), new(8, -potH), new(6, 0), new(-6, 0) };
+        DrawColoredPolygon(pot, new Color("c07242"));
+        DrawPolyline(Close(pot), Line, 1f);
+        DrawLine(new Vector2(-8, -potH + 2.5f), new Vector2(8, -potH + 2.5f), Ui.Alpha(Ui.Ink, 0.28f), 2.5f);
+
+        // 화분에 붙은 고양이 얼굴 (레퍼런스 시트의 그 화분)
+        float fy = -potH * 0.42f;
+        DrawColoredPolygon(Ellipse(0, fy, 4.6f, 3.6f, 14), new Color("f3dcc0"));
+        DrawCircle(new Vector2(-1.7f, fy - 0.4f), 0.7f, Ui.Ink);
+        DrawCircle(new Vector2(1.7f, fy - 0.4f), 0.7f, Ui.Ink);
+        DrawArc(new Vector2(0, fy + 0.9f), 1.1f, 0.2f, Mathf.Pi - 0.2f, 8, Ui.Alpha(Ui.Ink, 0.7f), 0.9f);
+
+        float soil = -potH + 1.5f;
+        DrawColoredPolygon(Ellipse(0, soil, 6.5f, 2.2f, 14), new Color("5a3a24"));
+
+        int leaves = State switch { "few" => 2, "half" => 4, "almost" => 7, "full" => 10, _ => 0 };
+        if (leaves == 0) return;
+
+        var stem = Ui.Darken(_tint, 0.35f);
+        float top = -_heightPx * (0.5f + 0.05f * leaves);      // 많이 모일수록 높이 자란다
+        DrawLine(new Vector2(0, soil), new Vector2(0, top), stem, 2f);
+        for (int i = 0; i < leaves; i++)
+        {
+            float t = (i + 1) / (float)(leaves + 1);
+            float y = Mathf.Lerp(soil - 2f, top, t);
+            float side = (i % 2 == 0) ? -1f : 1f;
+            Leaf(new Vector2(side * (3.5f + (i % 3)), y), 4.2f + i * 0.15f, 2.3f);
+        }
+
+        if (State == "full")                                    // 반짝임
+        {
+            var spark = new Color("f6e07a");
+            foreach (var (sx, sy, r) in new[] { (-9f, top + 3f, 2.2f), (9f, top + 7f, 1.8f), (0f, top - 4f, 2.4f) })
+            {
+                DrawLine(new Vector2(sx - r, sy), new Vector2(sx + r, sy), spark, 1.2f);
+                DrawLine(new Vector2(sx, sy - r), new Vector2(sx, sy + r), spark, 1.2f);
+            }
+        }
+    }
+
     /// <summary>화분. 상태가 있으면 자라는 단계(씨앗 → 새싹 → 꽃봉오리 → 활짝)로, 없으면 잎이 무성한 관엽으로 그린다.</summary>
     private void DrawPlant()
     {
@@ -263,11 +312,13 @@ public partial class FurniSprite : Node2D
             DrawArc(c, r, 0, Mathf.Tau, 16, Ui.Alpha(Ui.Ink, 0.35f), 1f);
         }
 
-        void Leaf(Vector2 at, float rx, float ry)
-        {
-            DrawColoredPolygon(Ellipse(at.X, at.Y, rx, ry, 12), Ui.Lighten(_tint, 0.2f));
-            DrawArc(at, Mathf.Max(rx, ry), 0, Mathf.Tau, 12, Ui.Alpha(Ui.Ink, 0.25f), 1f);
-        }
+    }
+
+    /// <summary>잎 한 장. 화분 종류가 둘이라(자라는 화분·선물 화분) 공용으로 뺐다.</summary>
+    private void Leaf(Vector2 at, float rx, float ry)
+    {
+        DrawColoredPolygon(Ellipse(at.X, at.Y, rx, ry, 12), Ui.Lighten(_tint, 0.2f));
+        DrawArc(at, Mathf.Max(rx, ry), 0, Mathf.Tau, 12, Ui.Alpha(Ui.Ink, 0.25f), 1f);
     }
 
     /// <summary>꺾은 꽃 — 화분에서 수확한 것. 바닥에 놓는 작은 장식.</summary>

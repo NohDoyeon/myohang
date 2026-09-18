@@ -59,6 +59,8 @@ public sealed class UserDto
     [Key(5)] public float Z;
     [Key(6)] public byte Dir;
     [Key(7)] public string Action = "stand";
+    /// <summary>인기도 — 내 화분에 남들이 꽂아 준 캣닢의 **누적** 개수. 화분을 팔아도 줄지 않는다.</summary>
+    [Key(8)] public int Fame;
 }
 
 [MessagePackObject]
@@ -135,6 +137,11 @@ public sealed class HouseStyle
 [MessagePackObject] public sealed class C_SellItem { [Key(0)] public string FurniId = ""; [Key(1)] public int Qty = 1; }
 /// <summary>다른 계열의 집으로 이사. 방 모양이 달라지므로 **놓여 있던 가구는 전부 주인 가방으로 돌아온다.**</summary>
 [MessagePackObject] public sealed class C_RemodelRoom { [Key(0)] public string TemplateId = ""; }
+/// <summary>
+/// 남의 방 화분에 캣닢을 꽂는다(선물). 배치가 아니라 **이미 놓인 가구에 대한 상호작용**이라
+/// 방 꾸미기 권한과는 무관하다 — 남의 방에 물건을 놓을 수 있는 건 여전히 포스트잇뿐이다.
+/// </summary>
+[MessagePackObject] public sealed class C_OfferItem { [Key(0)] public long ItemId; }
 
 // ----- S → C -----
 /// <summary>Nick 은 서버가 확정한 닉 — 입장권으로 들어오면 클라가 입력한 값과 다를 수 있으므로 이걸 따른다.</summary>
@@ -149,6 +156,8 @@ public sealed class HouseStyle
 [MessagePackObject] public sealed class S_UserPath { [Key(0)] public long UserId; [Key(1)] public List<TilePos> Path = new(); }
 [MessagePackObject] public sealed class S_UserAction { [Key(0)] public long UserId; [Key(1)] public string Action = ""; [Key(2)] public byte Dir; }
 [MessagePackObject] public sealed class S_UserFigure { [Key(0)] public long UserId; [Key(1)] public string Figure = ""; }
+/// <summary>인기도가 올랐다. 방 안 모두에게 보내 닉 옆 표시를 갱신한다.</summary>
+[MessagePackObject] public sealed class S_Fame { [Key(0)] public long UserId; [Key(1)] public int Fame; }
 [MessagePackObject] public sealed class S_ChatBubble { [Key(0)] public long UserId; [Key(1)] public string Text = ""; [Key(2)] public byte Kind; }
 [MessagePackObject] public sealed class S_ItemAdd { [Key(0)] public ItemDto Item = new(); }
 [MessagePackObject] public sealed class S_ItemRemove { [Key(0)] public long ItemId; }

@@ -30,6 +30,14 @@ public sealed class EconomyOptions
     public long RemodelPrice { get; set; } = 1000;
     public long LotteryPrice { get; set; } = 10;
     public long LotteryJackpot { get; set; } = 1000;
+    // ----- 선물 화분 (사교) -----
+    /// <summary>화분이 가득 차는 개수. 시트 기준 30.</summary>
+    public int PlanterCapacity { get; set; } = 30;
+    /// <summary>가득 찬 화분을 팔았을 때 주인이 받는 루피. 낱개 판매(40×30=1200)보다 커야 "모아서 완성"이 이득이다.</summary>
+    public long PlanterReward { get; set; } = 1500;
+    /// <summary>같은 사람에게 하루에 꽂아 줄 수 있는 개수. 매일 들를 이유를 만들되 자전거래를 막는 선.</summary>
+    public int GiftDailyLimit { get; set; } = 3;
+
     /// <summary>새 유저 시작 가방 (furniId → 수량). 첫 방문에만 지급.</summary>
     public Dictionary<string, int> StarterItems { get; set; } = new();
     /// <summary>개인 방 템플릿 roomId.</summary>

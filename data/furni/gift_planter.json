@@ -1,0 +1,14 @@
+{
+  "furniId": "gift_planter",
+  "displayName": "선물 화분",
+  "category": "plant",
+  "footprint": { "w": 1, "h": 1 },
+  "height": 1.0,
+  "flags": ["solid"],
+  "rotations": [0],
+  "sprite": "furni/plant/gift_planter",
+  "states": ["bare", "few", "half", "almost", "full"],
+  "interaction": { "type": "planter" },
+  "price": { "currency": "rupee", "amount": 120 },
+  "_note": "남이 꽂아 준 캣닢이 쌓이는 화분. **혼자서는 못 채운다**(자기 화분에는 꽂을 수 없음) — 그래서 놀러 갈 이유가 된다. 30개가 차면 주인이 팔 수 있고, 안 팔고 두면 반짝이는 자랑거리로 남는다. 상태는 꽂힌 개수에서 계산한다(시간이 아니라 사람이 채운다)."
+}

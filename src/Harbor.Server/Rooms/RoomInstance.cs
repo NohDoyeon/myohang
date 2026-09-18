@@ -1,6 +1,7 @@
 using System.Threading.Channels;
 using Harbor.Core;
 using Harbor.Protocol;
+using Harbor.Server.Config;
 using Harbor.Server.Data;
 using Harbor.Server.Net;
 using Microsoft.Extensions.Logging;
@@ -20,6 +21,13 @@ public sealed class RoomItem
     /// <summary>밀린 시간을 따라잡는 중 연속으로 건너뛴 단계 수. 순환 FSM 이 폭주하지 않도록 상한을 둔다.</summary>
     public int CatchUpSteps;
     public bool IsPostit => Def.Interaction.Type == "postit";
+    /// <summary>선물 화분 — 남들이 꽂아 준 캣닢이 쌓인다. 개수는 Extra 에 숫자로 둔다(저장·전송 경로를 그대로 씀).</summary>
+    public bool IsPlanter => Def.Interaction.Type == "planter";
+    public int GiftCount
+    {
+        get => int.TryParse(Extra, out int n) ? Math.Max(0, n) : 0;
+        set => Extra = Math.Max(0, value).ToString();
+    }
     public ItemDto ToDto() => new()
     {
         Id = Id, FurniId = Def.FurniId, X = (short)X, Y = (short)Y, Z = Z, Dir = Dir, State = State, Extra = Extra,
@@ -27,7 +35,8 @@ public sealed class RoomItem
         WallU = WallU, WallV = WallV, Tilt = Tilt, Usable = Usable,
     };
     /// <summary>지금 상태에서 '사용'이 먹히는가. 자라는 중인 식물은 false 라 클라가 안내를 띄운다.</summary>
-    public bool Usable => Fsm?.Apply(State, "use") is not null;
+    /// <remarks>선물 화분은 가득 찼을 때만 '사용'(=수확해서 팔기)이 된다.</remarks>
+    public bool Usable => IsPlanter ? State == "full" : Fsm?.Apply(State, "use") is not null;
     public ItemSave ToSave() => new()
     {
         FurniId = Def.FurniId, X = (short)X, Y = (short)Y, Dir = Dir, WallU = WallU, WallV = WallV, Tilt = Tilt,
@@ -39,7 +48,8 @@ public sealed class RoomUser
 {
     public Session S = null!; public int X, Y; public float Z; public byte Dir; public string Action = "stand";
     public Queue<(int x, int y)> Path = new();
-    public UserDto ToDto() => new() { Id = S.UserId, Nick = S.Nick, Figure = S.Figure, X = (short)X, Y = (short)Y, Z = Z, Dir = Dir, Action = Action };
+    /// <summary>인기도는 세션이 아니라 저장소가 가진 값이라(남이 올려 준다) 바깥에서 넣어 준다.</summary>
+    public UserDto ToDto(int fame = 0) => new() { Id = S.UserId, Nick = S.Nick, Figure = S.Figure, X = (short)X, Y = (short)Y, Z = Z, Dir = Dir, Action = Action, Fame = fame };
 }
 
 /// <summary>룸 1개 = 단일 소비자 루프. 락 없음. (OwnerId/UserCount 만 바깥에서 읽는다.)</summary>
@@ -64,13 +74,17 @@ public sealed class RoomInstance
     private static long _nextItemId = 1;
     private readonly int _tickMs;
     private readonly SaveStore? _save;
+    private readonly EconomyOptions _eco;
     private int _userCount;
+
+    /// <summary>인기도는 저장소가 가진 값이다(주인이 접속 중이 아니어도 올라간다).</summary>
+    private int FameOf(string nick) => _save?.FameOf(nick) ?? 0;
 
     public RoomInstance(long id, RoomDef def, DefinitionStore defs, int tickMs, ILogger log,
                         long ownerId = 0, string ownerNick = "", string? name = null,
-                        SaveStore? save = null, IReadOnlyList<ItemSave>? seed = null)
+                        SaveStore? save = null, IReadOnlyList<ItemSave>? seed = null, EconomyOptions? eco = null)
     {
-        Id = id; Def = def; _defs = defs; _tickMs = tickMs; _log = log; _save = save;
+        Id = id; Def = def; _defs = defs; _tickMs = tickMs; _log = log; _save = save; _eco = eco ?? new EconomyOptions();
         OwnerId = ownerId; OwnerNick = ownerNick; Name = name ?? def.Name;
         _map = new Heightmap(def.Heightmap);
         _walls = new Walls(_map);
@@ -126,6 +140,8 @@ public sealed class RoomInstance
             // 상태 시작 시각을 되살려 "그동안 흐른 시간"을 인정한다. 값이 없으면 지금부터.
             if (DateTime.TryParse(s.StateAt, null, System.Globalization.DateTimeStyles.RoundtripKind, out var at))
                 item.StateAtUtc = at.ToUniversalTime();
+            // 선물 화분의 단계는 저장된 상태 문자열이 아니라 **개수에서 다시 계산**한다(용량을 바꿔도 따라온다).
+            if (item.IsPlanter) item.State = PlanterState(item.GiftCount, _eco.PlanterCapacity);
 
             _items[item.Id] = item;
             if (def.Solid) for (int dx = 0; dx < def.Footprint.W; dx++) for (int dy = 0; dy < def.Footprint.H; dy++) _solidAt[(item.X + dx, item.Y + dy)] = item;
@@ -200,6 +216,7 @@ public sealed class RoomInstance
             case RoomCommand.PlaceItem c: OnPlace(c.S, c.FurniId, c.X, c.Y, c.Dir, c.WallU, c.WallV, c.Tilt); break;
             case RoomCommand.PickItem c: OnPick(c.S, c.ItemId); break;
             case RoomCommand.UseItem c: OnUse(c.S, c.ItemId); break;
+            case RoomCommand.OfferItem c: OnOffer(c.S, c.ItemId); break;
             case RoomCommand.PostitWrite c: OnPostitWrite(c.S, c.ItemId, c.Body); break;
             case RoomCommand.ItemTimer c: OnItemTimer(c.ItemId, c.ExpectedState); break;
             case RoomCommand.Evacuate c: OnEvacuate(c.Target, c.Reason); break;
@@ -232,9 +249,9 @@ public sealed class RoomInstance
                 Width = _map.W, Height = _map.H,
             },
             Items = _items.Values.Select(i => i.ToDto()).ToList(),
-            Users = _users.Values.Select(x => x.ToDto()).ToList()
+            Users = _users.Values.Select(x => x.ToDto(FameOf(x.S.Nick))).ToList()
         });
-        Broadcast(Opcode.S_UserEnter, new S_UserEnter { User = u.ToDto() }, except: s.UserId);
+        Broadcast(Opcode.S_UserEnter, new S_UserEnter { User = u.ToDto(FameOf(s.Nick)) }, except: s.UserId);
         _log.LogInformation("enter: {Nick} → {Room} ({Count}명)", s.Nick, Name, _users.Count);
     }
 
@@ -395,13 +412,89 @@ public sealed class RoomInstance
 
     private void OnUse(Session s, long itemId)
     {
-        if (!_items.TryGetValue(itemId, out var item) || item.Fsm is null) return;
+        if (!_items.TryGetValue(itemId, out var item)) return;
         if (!_users.TryGetValue(s.UserId, out var u)) return;
         if (Math.Max(Math.Abs(u.X - item.X), Math.Abs(u.Y - item.Y)) > 1) return;   // 인접 타일만
+
+        if (item.IsPlanter) { OnHarvestPlanter(s, item); return; }
+        if (item.Fsm is null) return;
         var t = item.Fsm.Apply(item.State, "use");
         if (t is null) return;
         Transition(item, t, s);
     }
+
+    /// <summary>
+    /// 남의 방 화분에 캣닢을 꽂는다. **혼자서는 못 채운다** — 그게 이 기능의 전부다.
+    /// 배치가 아니라 상호작용이므로 방 꾸미기 권한과 무관하다.
+    /// </summary>
+    private void OnOffer(Session s, long itemId)
+    {
+        if (!_users.TryGetValue(s.UserId, out var u)) return;
+        if (!_items.TryGetValue(itemId, out var item) || !item.IsPlanter)
+        { s.Send(Opcode.S_Error, new S_Error { Code = 20, Message = "not a planter" }); return; }
+        if (Math.Max(Math.Abs(u.X - item.X), Math.Abs(u.Y - item.Y)) > 1) return;   // 인접 타일만
+
+        string owner = OwnerNick;
+        if (owner.Length == 0)
+        { s.Send(Opcode.S_Error, new S_Error { Code = 36, Message = "public room" }); return; }
+        if (string.Equals(owner, s.Nick, StringComparison.OrdinalIgnoreCase))
+        { s.Send(Opcode.S_Error, new S_Error { Code = 37, Message = "own planter" }); return; }
+        if (item.GiftCount >= _eco.PlanterCapacity)
+        { s.Send(Opcode.S_Error, new S_Error { Code = 38, Message = "planter full" }); return; }
+        if (!GiftLimits.TryUse(s.Nick, owner, _eco.GiftDailyLimit))
+        { s.Send(Opcode.S_Error, new S_Error { Code = 39, Message = "daily limit" }); return; }
+
+        if (!s.InvTryTake(GiftFurniId, out int remaining))
+        { s.Send(Opcode.S_Error, new S_Error { Code = 24, Message = "no catnip" }); return; }
+
+        item.GiftCount += 1;
+        item.State = PlanterState(item.GiftCount, _eco.PlanterCapacity);
+        Broadcast(Opcode.S_ItemState, new S_ItemState { ItemId = item.Id, State = item.State, Extra = item.Extra, Usable = item.Usable });
+        if (_defs.Furni.TryGetValue(GiftFurniId, out var giftDef)) s.SendInventoryUpdate(giftDef, remaining);
+        SaveRoom();
+
+        int fame = _save?.AddFame(owner, 1) ?? 0;
+        _save?.LogGift(s.Nick, owner, SaveKey);
+        // 주인이 이 방에 있으면 닉 옆 표시를 바로 갱신한다(없으면 다음 입장 때 스냅샷으로 따라온다).
+        if (_users.Values.FirstOrDefault(x => string.Equals(x.S.Nick, owner, StringComparison.OrdinalIgnoreCase)) is { } ownerUser)
+            Broadcast(Opcode.S_Fame, new S_Fame { UserId = ownerUser.S.UserId, Fame = fame });
+
+        int left = _eco.PlanterCapacity - item.GiftCount;
+        s.Notice(left > 0
+            ? $"{owner}님의 화분에 캣닢을 꽂았어요. ({item.GiftCount}/{_eco.PlanterCapacity}, {left}개 남음)"
+            : $"{owner}님의 화분을 가득 채웠어요! ({_eco.PlanterCapacity}/{_eco.PlanterCapacity})");
+        Broadcast(Opcode.S_ChatBubble, new S_ChatBubble { UserId = s.UserId, Text = "🌿", Kind = 0 });
+        _log.LogInformation("gift: {Giver} → {Owner} ({Count}/{Cap})", s.Nick, owner, item.GiftCount, _eco.PlanterCapacity);
+    }
+
+    /// <summary>가득 찬 화분을 수확해 판다. 주인만, 가득 찼을 때만. 안 팔고 두면 그대로 자랑거리로 남는다.</summary>
+    private void OnHarvestPlanter(Session s, RoomItem item)
+    {
+        if (!string.Equals(OwnerNick, s.Nick, StringComparison.OrdinalIgnoreCase))
+        { s.Notice($"{OwnerNick}님의 화분이에요. 캣닢을 꽂아 줄 수 있어요."); return; }
+        if (item.GiftCount < _eco.PlanterCapacity)
+        { s.Notice($"아직 {item.GiftCount}/{_eco.PlanterCapacity} 예요. 놀러 온 사람들이 채워 줍니다."); return; }
+
+        long now = s.RupeeAdd(_eco.PlanterReward, "화분 수확");
+        s.SendWallet();
+        item.GiftCount = 0;
+        item.State = PlanterState(0, _eco.PlanterCapacity);
+        Broadcast(Opcode.S_ItemState, new S_ItemState { ItemId = item.Id, State = item.State, Extra = item.Extra, Usable = item.Usable });
+        SaveRoom();
+        s.Notice($"화분을 수확해 {_eco.PlanterReward:N0} 루피를 받았어요. (잔액 {now:N0}) 인기도는 그대로 남아요.");
+        _log.LogInformation("planter harvest: {Nick} +{Reward}", s.Nick, _eco.PlanterReward);
+    }
+
+    /// <summary>선물로 꽂는 물건. 지금은 캣닢 잎 하나뿐이라 상수로 둔다.</summary>
+    private const string GiftFurniId = "flower_cut";
+
+    /// <summary>개수 → 단계. 디자인 시트의 구간(1~5 / 6~15 / 16~29 / 30)을 그대로 따른다.</summary>
+    private static string PlanterState(int count, int cap)
+        => count <= 0 ? "bare"
+         : count >= cap ? "full"
+         : count <= cap / 6 ? "few"
+         : count <= cap / 2 ? "half"
+         : "almost";
 
     /// <summary>포스트잇 본문 쓰기: 글쓴이 본인만, 200자. State "written" + Extra=본문 으로 방송.</summary>
     private void OnPostitWrite(Session s, long itemId, string body)

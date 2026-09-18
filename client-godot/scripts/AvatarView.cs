@@ -45,13 +45,22 @@ public partial class AvatarView : Node2D
         NameLabel ??= GetNode<Label>("NameLabel");
         _badge = GetNode<Label>("Badge");
 
-        Nick = u.Nick; NameLabel.Text = u.Nick; _tile = (u.X, u.Y);
+        Nick = u.Nick; _tile = (u.X, u.Y);
+        SetFame(u.Fame);
         _figure = u.Figure;
         ApplyFigureColors();
         SetAction(u.Action, u.Dir);
     }
 
     public void MarkMe() => NameLabel.AddThemeColorOverride("font_color", Ui.AccentSoft);
+
+    /// <summary>인기도 — 내 화분에 남들이 꽂아 준 캣닢의 누적 개수. 0 이면 닉만 보여 조용하다.</summary>
+    public void SetFame(int fame)
+    {
+        _fame = Math.Max(0, fame);
+        NameLabel.Text = _fame > 0 ? $"{Nick}  🌿{_fame}" : Nick;
+    }
+    private int _fame;
 
     /// <summary>외모가 바뀌었을 때(S_UserFigure). 즉시 다시 그린다.</summary>
     public void SetFigure(string figure)

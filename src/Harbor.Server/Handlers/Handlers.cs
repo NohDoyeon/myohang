@@ -128,6 +128,7 @@ public static class HandlerRegistration
         d.On<C_PlaceItem>(Opcode.C_PlaceItem, (s, p) => { s.Room?.Post(new RoomCommand.PlaceItem(s, p.FurniId, p.X, p.Y, p.Dir, p.WallU, p.WallV, p.Tilt)); return Task.CompletedTask; });
         d.On<C_PickItem>(Opcode.C_PickItem, (s, p) => { s.Room?.Post(new RoomCommand.PickItem(s, p.ItemId)); return Task.CompletedTask; });
         d.On<C_UseItem>(Opcode.C_UseItem, (s, p) => { s.Room?.Post(new RoomCommand.UseItem(s, p.ItemId)); return Task.CompletedTask; });
+        d.On<C_OfferItem>(Opcode.C_OfferItem, (s, p) => { s.Room?.Post(new RoomCommand.OfferItem(s, p.ItemId)); return Task.CompletedTask; });
         d.On<C_PostitWrite>(Opcode.C_PostitWrite, (s, p) => { s.Room?.Post(new RoomCommand.PostitWrite(s, p.ItemId, p.Body ?? "")); return Task.CompletedTask; });
 
         // ----- Economy -----

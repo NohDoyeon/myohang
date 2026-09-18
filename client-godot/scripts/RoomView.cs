@@ -93,6 +93,7 @@ public partial class RoomView : Node2D
     private string _loginNotice = "";
     private (int x, int y) _myTile;
     private long _pendingUse;                 // 도착 후 사용할 가구
+    private bool _pendingOffer;               // 그게 '사용'이 아니라 '선물 꽂기'인가
     private string? _buildFurni; private byte _buildDir = 2; private bool _buildWall, _buildPostit;
     private sbyte _buildTilt;
     private static readonly sbyte[] TiltSteps = { 0, -7, 7, -14, 14 };
@@ -323,6 +324,10 @@ public partial class RoomView : Node2D
                 var ua = Framing.Deserialize<S_UserAction>(body);
                 if (_users.TryGetValue(ua.UserId, out var av2)) av2.SetAction(ua.Action, ua.Dir);
                 break;
+            case Opcode.S_Fame:
+                var fm = Framing.Deserialize<S_Fame>(body);
+                if (_users.TryGetValue(fm.UserId, out var av5)) av5.SetFame(fm.Fame);
+                break;
             case Opcode.S_UserFigure:
                 var uf = Framing.Deserialize<S_UserFigure>(body);
                 if (_users.TryGetValue(uf.UserId, out var av4)) av4.SetFigure(uf.Figure);
@@ -412,6 +417,10 @@ public partial class RoomView : Node2D
         33 => "이 방은 더 넓힐 수 없어요",
         34 => "내 방에서만 넓히거나 이사할 수 있어요",
         35 => "이미 그 집에 살고 있어요",
+        36 => "공용 방의 화분에는 꽂을 수 없어요",
+        37 => "내 화분에는 못 꽂아요. 놀러 온 사람들이 채워 줍니다",
+        38 => "이 화분은 이미 가득 찼어요",
+        39 => "오늘은 이 분께 더 못 드려요. 내일 또 들러 주세요",
         1 or 2 => $"서버 오류: {e.Message}",
         _ => e.Message,
     };
@@ -658,9 +667,20 @@ public partial class RoomView : Node2D
     {
         if (_pendingUse == 0) return;
         long id = _pendingUse; _pendingUse = 0;
+        bool offer = _pendingOffer; _pendingOffer = false;
         if (_items.TryGetValue(id, out var it) && Cheb(_myTile, it.Tile) <= 1)
-            NetClient.Instance.Send(Opcode.C_UseItem, new C_UseItem { ItemId = id });
+            SendItemAction(id, offer);
     }
+
+    /// <summary>선물 꽂기와 사용은 흐름이 같아 한 곳에서 보낸다(패킷 타입이 다르므로 분기는 여기서).</summary>
+    private void SendItemAction(long itemId, bool offer)
+    {
+        if (offer) NetClient.Instance.Send(Opcode.C_OfferItem, new C_OfferItem { ItemId = itemId });
+        else NetClient.Instance.Send(Opcode.C_UseItem, new C_UseItem { ItemId = itemId });
+    }
+
+    /// <summary>남의 화분에 꽂아 주는 물건 — 캣닢 잎.</summary>
+    private const string GiftFurniId = "flower_cut";
 
     // ---------------- 입력 ----------------
     public override void _UnhandledInput(InputEvent e)
@@ -710,6 +730,8 @@ public partial class RoomView : Node2D
         _pendingUse = 0;
         var hit = WallItemAtMouse() ?? FloorItemAt(x, y);
         if (hit is not null && hit.IsPostit) { PostitOpened?.Invoke(hit); return; }     // 읽기는 어디서든
+        // 선물 화분: 내 방이면 수확, 남의 방이면 캣닢 꽂기. 혼자서는 채울 수 없다.
+        if (hit is not null && hit.Interaction == "planter") { UseOrApproach(hit, offer: !IsMyRoom); return; }
         if (hit is not null && hit.Interaction == "fsm") { UseOrApproach(hit); return; }
         if ((x, y) == _doorTile) { DoorClicked?.Invoke(); return; }                      // 문 = 다른 방으로
         if (_map!.Walkable(x, y) && !(hit?.Solid ?? false))
@@ -726,15 +748,22 @@ public partial class RoomView : Node2D
     }
 
     /// <summary>인접하면 바로 사용, 멀면 가장 가까운 빈 인접 타일로 걸어간 뒤 사용.</summary>
-    private void UseOrApproach(FurniSprite hit)
+    /// <param name="offer">true = 사용이 아니라 **선물 꽂기**(남의 화분). 가득 차기 전에도 눌러야 하므로 Usable 검사를 건너뛴다.</param>
+    private void UseOrApproach(FurniSprite hit, bool offer = false)
     {
-        if (!hit.Usable)   // 자라는 중인 식물처럼 지금은 할 게 없는 상태 — 헛클릭 대신 상태를 알려준다
+        if (offer && !(_inventory.TryGetValue(GiftFurniId, out var gift) && gift.Qty > 0))
+        {
+            Status?.Invoke("꽂아 줄 캣닢이 없어요. 내 방에서 캣닢 화분을 키우면 잎이 나와요.", true);
+            return;
+        }
+        if (!offer && !hit.Usable)   // 자라는 중인 식물처럼 지금은 할 게 없는 상태 — 헛클릭 대신 상태를 알려준다
         {
             var label = FurniPalette.StateLabel(hit.State);
             Status?.Invoke(label.Length > 0 ? $"{hit.DisplayName} — {label}" : $"{hit.DisplayName}는 지금 할 수 있는 게 없어요", false);
             return;
         }
-        if (Cheb(_myTile, hit.Tile) <= 1) { NetClient.Instance.Send(Opcode.C_UseItem, new C_UseItem { ItemId = hit.ItemId }); return; }
+        if (Cheb(_myTile, hit.Tile) <= 1) { SendItemAction(hit.ItemId, offer); return; }
+        _pendingOffer = offer;
         (int x, int y)? best = null; int bestD = int.MaxValue;
         for (int dx = -1; dx <= 1; dx++) for (int dy = -1; dy <= 1; dy++)
         {

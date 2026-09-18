@@ -29,7 +29,16 @@
 2. **`.env` 값에 따옴표가 없어** 셸이 `;` 에서 줄을 끊고 `SSL Mode=Require` 를 명령으로 실행했다.
    `HARBOR_DB` 에는 첫 `;` 앞 45자만 담겼다 → **값을 작은따옴표로 감싸야 한다.** `.env.example` 에 경고를 박아 뒀다.
 
+### GitHub 첫 푸시에서 걸린 것
+- **검증 로그가 통째로 딸려 들어갔다** — `.gitignore` 가 `srv.log` 처럼 *특정 이름*만 막고 있어서 `srv14.log`·`godot12.log.u8` 등이 빠져나갔다.
+  푸시 전에 발견해 `git rm --cached` + amend 로 제거. **`.gitignore` 는 확장자(`*.log`)로 막도록 고쳤다.**
+- **`service_role` 오탐** — 스캐너가 "이 키를 노출하지 말라"는 *설명 문장*을 잡았다. 값이 붙어 있을 때만 걸리도록 패턴 수정.
+- **403 Permission denied** — 이 PC 에 회사 계정 자격증명이 캐시돼 있었다. 원격 URL 에 계정명을 넣어(`https://NohDoyeon@github.com/...`) 해결.
+- **커밋 작성자가 회사 이메일**이었다. 공개 저장소라 그대로 노출되므로 저장소 로컬 설정으로 개인 정체성을 지정하고 amend.
+- `.gitattributes` 추가 — Windows 에서 클론하면 `.sh` 가 CRLF 로 체크아웃돼 `tools/run-server.sh` 가 깨진다. 셸 스크립트는 LF 고정.
+
 ### 검증 (2026-09-18)
+- **사용자 눈 확인 통과** — Supabase Postgres 위에서 실제로 플레이해 정상 동작 확인(13차 기능 포함).
 - 이관: **계정 19 · 플레이어 19 · 가방 100줄 · 방 19 · 가구 23 · 원장 118줄**
 - 기동: `db loaded: users=19 rooms=19 from aws-0-ap-northeast-2.pooler.supabase.com:5432/postgres`,
   `rooms=13 furni=19 저장된방=17 저장된유저=19`, 계열/단계 경고 없음, :30000·:8080 리슨.

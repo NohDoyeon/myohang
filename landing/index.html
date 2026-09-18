@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>묘항 — 고양이들의 항구 마을</title>
+<meta name="description" content="두 발로 걷는 고양이들이 사는 항구 마을. 다락방을 꾸미고, 이웃집 벽에 쪽지를 남기고, 캣닢을 나눠 주며 지내는 온라인 커뮤니티 게임.">
+<meta property="og:title" content="묘항 — 고양이들의 항구 마을">
+<meta property="og:description" content="다락방을 꾸미고 이웃집에 놀러 가는, 2000년대 커뮤니티 게임 감성의 온라인 마을.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22><text y=%2213%22 font-size=%2213%22>🐈</text></svg>">
+<style>
+  :root {
+    --bg: #12161f;
+    --bg-soft: #1a2130;
+    --panel: #212a3c;
+    --line: #2f3a52;
+    --ink: #0d1017;
+    --paper: #e8e2d6;
+    --muted: #8e97ab;
+    --accent: #e8b878;
+    --accent-soft: #f2d3a0;
+    --sea: #5c86b8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--paper);
+    font-family: "Pretendard", "Noto Sans KR", "맑은 고딕", system-ui, sans-serif;
+    line-height: 1.7; -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent-soft); }
+
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 20px; }
+
+  header {
+    padding: 72px 0 56px;
+    background:
+      radial-gradient(1200px 400px at 50% -160px, rgba(92,134,184,.35), transparent 70%),
+      linear-gradient(180deg, #0f1420 0%, var(--bg) 100%);
+    border-bottom: 1px solid var(--line);
+    text-align: center;
+  }
+  .logo { font-size: 46px; font-weight: 800; letter-spacing: -1px; color: var(--accent); margin: 0; }
+  .logo .en { font-size: 18px; color: var(--muted); font-weight: 500; letter-spacing: 2px; display: block; margin-top: 6px; }
+  .tagline { font-size: 18px; color: var(--paper); margin: 18px 0 8px; }
+  .sub { color: var(--muted); font-size: 15px; margin: 0; }
+
+  .cta { margin-top: 30px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    display: inline-block; padding: 12px 22px; border-radius: 10px; text-decoration: none;
+    font-weight: 700; font-size: 15px; border: 1px solid var(--line); background: var(--panel); color: var(--paper);
+  }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #2a1e10; }
+  .btn.disabled { opacity: .55; cursor: not-allowed; }
+  .note { margin-top: 12px; font-size: 13px; color: var(--muted); }
+
+  section { padding: 54px 0; border-bottom: 1px solid var(--line); }
+  h2 { font-size: 22px; margin: 0 0 6px; color: var(--accent-soft); }
+  h2 + .lead { color: var(--muted); margin: 0 0 26px; font-size: 15px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+  .card { background: var(--bg-soft); border: 1px solid var(--line); border-radius: 12px; padding: 18px 18px 20px; }
+  .card h3 { margin: 0 0 6px; font-size: 16px; }
+  .card p { margin: 0; color: var(--muted); font-size: 14px; }
+  .card .emoji { font-size: 24px; display: block; margin-bottom: 8px; }
+
+  ol.steps { counter-reset: s; list-style: none; padding: 0; margin: 0; }
+  ol.steps li {
+    counter-increment: s; position: relative; padding: 14px 0 14px 46px; border-top: 1px solid var(--line);
+  }
+  ol.steps li:first-child { border-top: none; }
+  ol.steps li::before {
+    content: counter(s); position: absolute; left: 0; top: 13px;
+    width: 28px; height: 28px; border-radius: 50%; background: var(--panel); border: 1px solid var(--line);
+    display: grid; place-items: center; font-size: 13px; color: var(--accent); font-weight: 700;
+  }
+  ol.steps b { color: var(--paper); }
+  ol.steps span { color: var(--muted); font-size: 14px; }
+
+  .status { background: var(--bg-soft); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; }
+  .status ul { margin: 10px 0 0; padding-left: 18px; color: var(--muted); font-size: 14px; }
+  .status li { margin: 4px 0; }
+  .tag { display: inline-block; font-size: 12px; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--accent); margin-left: 6px; }
+
+  footer { padding: 34px 0 60px; color: var(--muted); font-size: 13px; text-align: center; }
+  footer a { color: var(--muted); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <h1 class="logo">묘항 <span class="en">MYOHANG</span></h1>
+    <p class="tagline">두 발로 걷는 고양이들이 사는 <b>항구 마을</b></p>
+    <p class="sub">다락방을 꾸미고, 이웃집 벽에 쪽지를 남기고, 캣닢을 나눠 주며 지냅니다.</p>
+    <div class="cta">
+      <a class="btn primary disabled" href="#status">테스터 모집 준비 중</a>
+      <a class="btn" href="https://github.com/NohDoyeon/myohang" target="_blank" rel="noopener">GitHub 저장소</a>
+    </div>
+    <p class="note">지금은 비공개 테스트를 준비하는 중입니다. 클라이언트 내려받기는 곧 열립니다.</p>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <h2>어떤 게임인가요</h2>
+    <p class="lead">2000년대 "내 방 꾸미기 + 채팅" 커뮤니티 게임의 감성을, 원작과 무관하게 처음부터 다시 만들고 있습니다.</p>
+    <div class="grid">
+      <div class="card">
+        <span class="emoji">🏠</span>
+        <h3>내 다락방</h3>
+        <p>가구를 사서 놓고, 벽에 창문과 시계를 겁니다. 루피를 모으면 방을 넓히거나 다른 모양의 집으로 이사할 수 있어요.</p>
+      </div>
+      <div class="card">
+        <span class="emoji">📝</span>
+        <h3>벽에 남기는 쪽지</h3>
+        <p>남의 방에 놀러 가 벽에 포스트잇을 붙입니다. 주인이 없어도 흔적은 남습니다.</p>
+      </div>
+      <div class="card">
+        <span class="emoji">🌿</span>
+        <h3>캣닢 선물</h3>
+        <p>내 화분은 <b>혼자서는 못 채웁니다.</b> 놀러 온 사람들이 캣닢을 꽂아 주고, 가득 차면 수확할 수 있어요.</p>
+      </div>
+      <div class="card">
+        <span class="emoji">💬</span>
+        <h3>하늘로 떠오르는 말</h3>
+        <p>채팅은 창이 아니라 머리 위에서 떠올라 사라집니다. 이 장르의 시각적 서명이죠.</p>
+      </div>
+      <div class="card">
+        <span class="emoji">🐾</span>
+        <h3>고양이 꾸미기</h3>
+        <p>털색과 무늬(턱시도·얼룩·젖소), 옷과 모자를 고릅니다. 같은 방 사람들에게 즉시 보입니다.</p>
+      </div>
+      <div class="card">
+        <span class="emoji">🎟️</span>
+        <h3>매일 오는 재미</h3>
+        <p>연속 출석 보상, 복권, 시간이 지나며 자라는 화분 — 하루에 한 번 들를 이유를 만듭니다.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>어떻게 시작하나요</h2>
+    <p class="lead">브라우저에서 바로 하는 게임이 아니라, 작은 클라이언트를 내려받아 실행합니다.</p>
+    <ol class="steps">
+      <li><b>클라이언트 내려받기</b><br><span>압축을 풀고 실행하면 시작 화면이 열립니다. 설치 과정은 없습니다.</span></li>
+      <li><b>닉네임과 비밀번호로 입장</b><br><span>처음 쓰는 닉네임이면 그대로 계정이 만들어집니다.</span></li>
+      <li><b>내 다락방에서 시작</b><br><span>가방에 들어 있는 가구부터 놓아 보세요. 방·지갑·외모는 저장됩니다.</span></li>
+    </ol>
+  </div>
+</section>
+
+<section id="status">
+  <div class="wrap">
+    <h2>개발 현황</h2>
+    <p class="lead">혼자 만들고 있고, 만든 것과 남은 것을 숨기지 않고 적습니다.</p>
+    <div class="status">
+      <b>지금 돌아가는 것</b><span class="tag">플레이 가능</span>
+      <ul>
+        <li>방 꾸미기 · 이동 · 한글 채팅 · 감정표현</li>
+        <li>계정 저장(PostgreSQL) · 출석 보상 · 상점과 루피 · 복권</li>
+        <li>방 넓히기(5단계) · 집 모양 바꾸기(다락방 / 모퉁이집 / 복층방)</li>
+        <li>캣닢 화분과 선물 · 인기도</li>
+      </ul>
+    </div>
+    <div class="status" style="margin-top:14px">
+      <b>만드는 중</b>
+      <ul>
+        <li>도트 아트 — 고양이 방향별 프레임, 가구 스프라이트</li>
+        <li>낚시 미니게임, 친구 목록, 배경음악</li>
+        <li>웹에서 바로 하는 버전(지금은 데스크톱 클라이언트만)</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>묘항(猫港) — 개인 프로젝트 · <a href="https://github.com/NohDoyeon/myohang" target="_blank" rel="noopener">GitHub</a></p>
+    <p>원작 IP의 명칭·로고·캐릭터·에셋·프로토콜은 일절 사용하지 않습니다.</p>
+  </div>
+</footer>
+
+</body>
+</html>

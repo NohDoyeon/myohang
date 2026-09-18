@@ -75,15 +75,28 @@ public static class Db
             );
             CREATE INDEX IF NOT EXISTS idx_notice_published ON notice(published_at DESC);
 
-            -- 플레이어 = 지갑·외모·출석. **게임 서버가 소유한다.**
+            -- 플레이어 = 지갑·외모·출석·인기도. **게임 서버가 소유한다.**
+            -- fame = 내 화분에 남들이 꽂아 준 캣닢의 누적 개수. 화분을 팔아도 줄지 않는다(명예는 남는다).
             CREATE TABLE IF NOT EXISTS player (
                 nick_key        TEXT PRIMARY KEY REFERENCES account(nick_key) ON DELETE CASCADE,
                 rupee           BIGINT NOT NULL DEFAULT 0,
                 figure          TEXT NOT NULL DEFAULT '',
                 last_allowance  TEXT NOT NULL DEFAULT '',
                 streak          INTEGER NOT NULL DEFAULT 0,
+                fame            INTEGER NOT NULL DEFAULT 0,
                 updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
             );
+
+            -- 누가 누구에게 캣닢을 꽂아 줬는지. 인기도의 근거이자 "누가 다녀갔나"의 기록이다.
+            CREATE TABLE IF NOT EXISTS gift_log (
+                id        BIGSERIAL PRIMARY KEY,
+                giver_key TEXT NOT NULL,
+                owner_key TEXT NOT NULL,
+                room_key  TEXT NOT NULL DEFAULT '',
+                at        TIMESTAMPTZ NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_gift_log_owner ON gift_log(owner_key, id DESC);
+            CREATE INDEX IF NOT EXISTS idx_gift_log_giver ON gift_log(giver_key, id DESC);
 
             -- 가방: 계정이 가진 가구 종류와 수량.
             CREATE TABLE IF NOT EXISTS inventory (
@@ -152,7 +165,7 @@ public static class Db
     /// </summary>
     private static void LockDownForDataApi(NpgsqlConnection conn)
     {
-        foreach (var t in new[] { "schema_info", "account", "player", "inventory", "room", "room_item", "currency_log", "login_log", "notice" })
+        foreach (var t in new[] { "schema_info", "account", "player", "inventory", "room", "room_item", "currency_log", "login_log", "notice", "gift_log" })
             conn.Execute($"ALTER TABLE {t} ENABLE ROW LEVEL SECURITY;");
     }
 }

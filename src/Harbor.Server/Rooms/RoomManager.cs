@@ -14,11 +14,12 @@ public sealed class RoomManager
     private readonly DefinitionStore _defs;
     private readonly SaveStore _save;
     private readonly ServerOptions _opt;
+    private readonly EconomyOptions _eco;
     private readonly ILoggerFactory _lf;
     private long _nextId;
 
-    public RoomManager(DefinitionStore defs, SaveStore save, IOptions<ServerOptions> opt, ILoggerFactory lf)
-    { _defs = defs; _save = save; _opt = opt.Value; _lf = lf; }
+    public RoomManager(DefinitionStore defs, SaveStore save, IOptions<ServerOptions> opt, IOptions<EconomyOptions> eco, ILoggerFactory lf)
+    { _defs = defs; _save = save; _opt = opt.Value; _eco = eco.Value; _lf = lf; }
 
     public RoomInstance? Get(long id) => _rooms.GetValueOrDefault(id);
 
@@ -29,7 +30,7 @@ public sealed class RoomManager
         var id = Interlocked.Increment(ref _nextId);
         var saved = _save.GetRoom(SaveStore.RoomKey(ownerNick, templateId));
         var room = new RoomInstance(id, def, _defs, _opt.TickMs, _lf.CreateLogger<RoomInstance>(),
-                                    ownerId, ownerNick, name ?? saved?.Name, _save, seed ?? saved?.Items ?? TemplateFurni(def));
+                                    ownerId, ownerNick, name ?? saved?.Name, _save, seed ?? saved?.Items ?? TemplateFurni(def), _eco);
         _rooms[id] = room;
         return room;
     }

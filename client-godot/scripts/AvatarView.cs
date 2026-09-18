@@ -38,6 +38,7 @@ public partial class AvatarView : Node2D
 
     private Color _shirt = Ui.ShirtColors[0], _pants = Ui.PantsColors[0], _fur = Ui.Fur, _patternColor = Ui.PatternColors[0];
     private Color? _hatColor; private int _pattern = PatternPlain;
+    private Color _earInner = Ui.EarColors[0], _eyeColor = Ui.EyeColors[0];
 
     public void Bind(UserDto u)
     {
@@ -90,7 +91,50 @@ public partial class AvatarView : Node2D
         if (Figure.Get(_figure, "ch") is { } ch) _shirt = Ui.Pick(Ui.ShirtColors, ch.palette);
         if (Figure.Get(_figure, "lg") is { } lg) _pants = Ui.Pick(Ui.PantsColors, lg.palette);
         if (Figure.Get(_figure, "ha") is { } ha) _hatColor = Ui.Pick(Ui.HatColors, ha.palette);
+        if (Figure.Get(_figure, "ea") is { } ea) _earInner = Ui.Pick(Ui.EarColors, ea.palette);
+        if (Figure.Get(_figure, "ey") is { } ey) _eyeColor = Ui.Pick(Ui.EyeColors, ey.palette);
+
+        ApplyPaletteSwap();
     }
+
+    /// <summary>
+    /// 도트 스프라이트에 팔레트 스왑을 건다. **도트가 있으면 `_Draw` 는 아예 돌지 않으므로**
+    /// (`_placeholder == false`) 코드 그림에 쓰던 색이 화면에 반영될 곳이 없다 — 색은 여기서 먹인다.
+    /// 아바타마다 색이 다르므로 머티리얼은 **파츠 스프라이트마다 하나씩** 따로 가진다(공유하면 전부 같은 색이 된다).
+    /// </summary>
+    private void ApplyPaletteSwap()
+    {
+        var shader = GD.Load<Shader>(PaletteShaderPath);
+        if (shader is null)
+        {
+            if (!_paletteLogged) { _paletteLogged = true; GD.PrintErr($"[Palette] 셰이더를 못 읽음: {PaletteShaderPath}"); }
+            return;                                        // 셰이더가 없으면 조용히 원본 색 그대로
+        }
+
+        var targets = SpritePalette.Targets(_fur, _patternColor, _shirt, _earInner);
+        var sources = SpritePalette.Sources();
+        int n = 0;
+        foreach (var child in Layers.GetChildren())
+        {
+            if (child is not Sprite2D spr) continue;
+            if (spr.Material is not ShaderMaterial mat || mat.Shader != shader)
+                spr.Material = mat = new ShaderMaterial { Shader = shader };
+            mat.SetShaderParameter("pair_count", SpritePalette.PairCount);
+            mat.SetShaderParameter("src_colors", sources);
+            mat.SetShaderParameter("dst_colors", targets);
+            n++;
+        }
+        if (!_paletteLogged)
+        {
+            _paletteLogged = true;
+            GD.Print($"[Palette] 스프라이트 {n}개에 적용 · 쌍 {SpritePalette.PairCount} · 털 {_fur.ToHtml(false)} → {targets[0]}");
+        }
+    }
+
+    /// <summary>진단 출력은 첫 아바타에서 한 번만 (방에 사람이 많으면 로그가 덮인다).</summary>
+    private static bool _paletteLogged;
+
+    private const string PaletteShaderPath = "res://ui/palette_swap.gdshader";
 
     public void SetPath(List<(int x, int y)> path, Heightmap map)
     {
@@ -323,7 +367,7 @@ public partial class AvatarView : Node2D
             var b = new Vector2(s * 2.5f, hy - hr - 0.5f);
             var tip = new Vector2(s * 8.5f, hy - hr - 6.5f + twitch);
             DrawColoredPolygon(new[] { a, b, tip }, _fur);
-            DrawColoredPolygon(new[] { a.Lerp(tip, 0.2f), b.Lerp(tip, 0.25f), tip.Lerp(a, 0.3f) }, Ui.EarInner);
+            DrawColoredPolygon(new[] { a.Lerp(tip, 0.2f), b.Lerp(tip, 0.25f), tip.Lerp(a, 0.3f) }, _earInner);
             DrawPolyline(new[] { a, b, tip, a }, line, 1f);
         }
     }

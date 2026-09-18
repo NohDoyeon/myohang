@@ -48,10 +48,24 @@ public static class Ui
         new("3c343c"), // 검정
         new("fbf7ef"), // 흰색
     };
-    /// <summary>무늬색 — 턱시도·얼룩·젖소 무늬에 쓰인다. figure 의 `hr` 팔레트.</summary>
+    /// <summary>
+    /// 무늬색 — 태비 줄무늬·음영에 쓰인다. figure 의 `hr` 팔레트.
+    /// **1번은 원화의 태비색**이라, 아무것도 안 고른 기본 상태가 그림 그대로다.
+    /// </summary>
     public static readonly Color[] PatternColors =
     {
-        new("fbf7ef"), new("3c343c"), new("c87848"), new("9a8e88"), new("e8b878"), new("a06a4a"),
+        new("d8a786"), new("3c343c"), new("c87848"), new("9a8e88"), new("e8b878"), new("a06a4a"),
+        new("fbf7ef"), new("6a5e5a"),
+    };
+    /// <summary>귀 안쪽 — figure 의 `ea` 팔레트. 1번이 원화 색.</summary>
+    public static readonly Color[] EarColors =
+    {
+        new("e29f8b"), new("e8a0a8"), new("d98a9a"), new("c98878"), new("b07a86"), new("8a6a66"),
+    };
+    /// <summary>눈 색 — figure 의 `ey` 팔레트. 1번이 원화 색(선과 같은 짙은 색).</summary>
+    public static readonly Color[] EyeColors =
+    {
+        new("5b4854"), new("3c7a4a"), new("c8a032"), new("4a6aa0"), new("8a5aa0"), new("a04a4a"),
     };
     /// <summary>모자 색은 상의 팔레트를 공유한다.</summary>
     public static Color[] HatColors => ShirtColors;

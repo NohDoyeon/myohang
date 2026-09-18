@@ -7,10 +7,15 @@ namespace Harbor.Core;
 /// </summary>
 public static class Figure
 {
-    /// <summary>hd=머리(피부), hr=머리카락, ch=상의, lg=하의, sh=신발, ha=모자(없어도 됨).</summary>
-    public static readonly string[] Parts = { "hd", "hr", "ch", "lg", "sh", "ha" };
+    /// <summary>
+    /// 파츠 코드. 사람 시절 이름을 그대로 두고 **뜻만** 바꿨다 — 저장된 외모가 그대로 살아남기 때문이다.
+    /// hd=털 바탕색, hr=무늬(모양·색), ch=상의, lg=하의, sh=신발, ha=모자, **ea=귀 안쪽, ey=눈**.
+    /// 뒤에 붙이는 파츠는 없어도 되므로(옛 저장본엔 없다) 순서를 바꾸지 말고 **뒤에만 추가**한다.
+    /// </summary>
+    public static readonly string[] Parts = { "hd", "hr", "ch", "lg", "sh", "ha", "ea", "ey" };
 
-    public const string Default = "hd-001-02.hr-001-01.ch-001-01.lg-001-01.sh-001-01";
+    /// <summary>hd 팔레트 1 = 크림 — 그려 둔 고양이 도트와 같은 색이라, 아무것도 고르지 않은 상태가 원화 그대로다.</summary>
+    public const string Default = "hd-001-01.hr-001-01.ch-001-01.lg-001-01.sh-001-01";
     public const int MaxLength = 96;
     public const int MaxModel = 999;
     public const int MaxPalette = 99;

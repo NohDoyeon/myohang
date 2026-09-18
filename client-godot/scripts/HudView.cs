@@ -309,10 +309,13 @@ public partial class HudView : CanvasLayer
     {
         _winTitle.Text = "외모 꾸미기";
         _winBody.AddChild(Note("고르면 바로 반영되고 저장돼요. 같은 방 사람들에게도 즉시 보입니다.", Ui.Muted));
-        SwatchRow("털색", Ui.FurColors, "hd");
-        StyleRow("무늬", "hr", new[] { ("민무늬", 1), ("턱시도", 2), ("얼룩", 3), ("젖소", 4) });
+        SwatchRow("털 바탕색", Ui.FurColors, "hd");
         SwatchRow("무늬색", Ui.PatternColors, "hr");
+        SwatchRow("귀 안쪽", Ui.EarColors, "ea");
         SwatchRow("상의", Ui.ShirtColors, "ch");
+        _winBody.AddChild(Note("아래 항목은 아직 도트 그림이 없어 화면에 반영되지 않아요 (고른 값은 저장되고, 그림이 들어오면 살아납니다).", Ui.Muted));
+        SwatchRow("눈", Ui.EyeColors, "ey");
+        StyleRow("무늬 모양", "hr", new[] { ("민무늬", 1), ("턱시도", 2), ("얼룩", 3), ("젖소", 4) });
         SwatchRow("하의", Ui.PantsColors, "lg");
         HatRow();
     }

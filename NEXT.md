@@ -1,9 +1,62 @@
 # ▶ 여기부터 읽기 (이어서 하기)
 
 > 터미널을 새로 열면 이 파일부터 읽는다. 상세 이력은 `WORKLOG.md`.
-> 위치: `C:\Users\User\Desktop\harbor` (Harbor.sln 있는 폴더). 제품명 **팝플(Popple)**, 코드명 Harbor.
+> 위치: `C:\Users\User\Desktop\harbor` (Harbor.sln 있는 폴더). 제품명 **묘항(Myohang)**, 코드명 Harbor.
 
-## 지금 상태 — 13차까지 (2026-09-18). 출석·팔기·방 넓히기·이사 — **빌드/테스트 통과 + 눈 확인 완료**
+---
+
+## 🔴 지금 하던 일 — 웹 클라이언트 이전, 단계 1 (2026-09-21)
+
+**방향이 바뀌었다: 웹으로 간다.** 계획 전체는 **`docs/web-client-plan.md`** 를 읽을 것.
+
+- **서버는 C# 그대로.** 다시 쓰는 것은 `client-godot/scripts`(3,210줄)뿐이고, 서버·DB·프로토콜·아트·방 템플릿은 전부 남는다.
+- **Godot 클라에 새 기능을 넣지 않는다.** 클라 기능은 웹 쪽에만 쌓는다. 정리는 단계 7에서.
+
+### ✅ 단계 0 끝남 (커밋 `39e907a`)
+
+`/ws` 가 열렸다. `Session` 에서 전송을 **`ITransport`** 로 분리해서 TCP(Godot)와 WebSocket(브라우저)이
+**같은 세션·핸들러·방 루프**를 지난다 → 웹 클라를 붙여도 서버에 게임 로직이 추가되지 않는다.
+
+```
+[Harbor] 게임 :30000  ·  웹 http://localhost:8080  ·  브라우저 ws://localhost:8080/ws
+```
+
+### ▶ 다음: 단계 1 — TypeScript 시작
+
+목표는 **브라우저에서 입장권으로 로그인해 `S_RoomSnapshot` 을 콘솔에 찍기**까지. 필요한 것 셋:
+
+1. `Framing` 의 TS 구현 — `[uint32 length][uint16 opcode][MessagePack body]` 리틀엔디언 (`Harbor.Protocol/Framing.cs`)
+2. `Packets.cs`(168줄) → TS 타입 · `Opcode.cs` → TS enum
+3. `/ws` 접속 후 `C_Login` (입장권을 **URL 에 싣지 않는다** — 연결 후 패킷으로 보낸다)
+
+여기가 뚫리면 단계 2~6 은 전부 그리기 작업이다. 라이브러리는 **PixiJS + @msgpack/msgpack**,
+**React 로 월드를 그리지 않는다**(캔버스는 Pixi 게임 루프, React 는 채팅·인벤토리 등 주변부).
+
+### ✅ 관리 API 도 끝남 — 화면 없이 `curl` 로 운영 가능
+
+`/admin/status|online|room|broadcast|kick|grant|reload-defs`. 설계는 `docs/platform-plan.md` §7.
+
+```
+! cd /c/Users/User/Desktop/harbor && set -a; . ./.env; set +a; curl -s -H "Authorization: Bearer $HARBOR_ADMIN_TOKEN" localhost:8080/admin/status
+```
+
+- **`HARBOR_ADMIN_TOKEN` 이 없으면 `/admin` 이 아예 등록되지 않는다.** 만들기: `py tools/new-secret.py HARBOR_ADMIN_TOKEN`
+- **토큰을 브라우저로 내려보내지 않는다.** Next.js **서버 라우트**에서만 부른다.
+- `/grant` 는 **사유 필수** → `currency_log` 에 `운영:<사유>` 로 남는다. DB 직접 수정 금지(메모리가 진실이라 덮어써진다).
+- ⚠ `curl -d '…한글…'` 은 Git Bash 가 CP949 로 보내 **본문 없는 400** 이 된다 → UTF-8 파일에 담아 `--data-binary @파일`.
+
+### 🔜 공개 전에 반드시 (보안)
+
+1. **로그인 속도 제한** — 웹·게임 양쪽 다 없다. 공개하면 무차별 대입이 가능하다
+2. **공용 방 잠금** — `CanEdit` 이 `Kind=="public"` 이면 무조건 true (`RoomInstance.cs:410`) → **아무나 광장 가구를 집어 간다**
+3. `Server:AllowGameSignup` 을 **false** 로 (가입은 웹에서만)
+4. **XSS** — Godot 은 HTML 을 안 그려서 안전했다. **웹 클라는 채팅·포스트잇·닉을 DOM 에 그린다** → `dangerouslySetInnerHTML` 금지
+5. **TLS** — 인증서는 게임 서버가 아니라 **앞단(Cloudflare Tunnel)** 이 든다. `cloudflared tunnel --url http://localhost:8080`
+6. Git 히스토리 비밀 검사 (`check-secrets.sh` 는 커밋할 파일만 본다)
+
+---
+
+## 지난 상태 — 13차까지 (2026-09-18). 출석·팔기·방 넓히기·이사 — **빌드/테스트 통과 + 눈 확인 완료**
 
 > 2026-09-18: Supabase Postgres 위에서 실제 플레이로 정상 동작 확인. 다음은 **배포**(클라 내보내기 → 서버 외부 공개 → 다른 PC 접속).
 

@@ -7,7 +7,7 @@
 //  2. 이동은 **서버가 준 경로를 클라가 보간**한다. 서버는 칸 단위로만 말하고(S_UserPath),
 //     칸당 시간은 `room.moveMs` 다. 이 값을 안 쓰고 임의 속도로 움직이면 서버 위치와 조금씩 어긋난다.
 
-import { Application, Container, Graphics, Sprite, Text, TilingSprite } from "pixi.js";
+import { Application, Container, Graphics, Sprite, Text, Texture, TilingSprite } from "pixi.js";
 import type { ItemDto, RoomSnapshot, TilePos, UserDto } from "@/lib/protocol/packets";
 import { Heightmap, TILE_H, TILE_W, Walls, depthKey, directionBetween, toScreen, toWorld } from "./iso";
 import { AvatarAtlas } from "./atlas";

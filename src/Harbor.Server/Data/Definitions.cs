@@ -86,10 +86,27 @@ public sealed class DefinitionStore
     public IReadOnlyDictionary<string, RoomDef> Rooms { get; private set; } = new Dictionary<string, RoomDef>();
     public IReadOnlyDictionary<string, FurniDef> Furni { get; private set; } = new Dictionary<string, FurniDef>();
 
+    private string _root = "";
+
     public void Load(string root)
     {
-        Rooms = LoadDir<RoomDef>(Path.Combine(root, "rooms"), r => r.RoomId);
-        Furni = LoadDir<FurniDef>(Path.Combine(root, "furni"), f => f.FurniId);
+        // **둘 다 읽은 뒤에** 바꾼다. 중간에 예외가 나면 기존 정의가 그대로 남는다 —
+        // 깨진 JSON 하나를 올렸다고 라이브의 가구 목록이 반쯤 비면 안 된다.
+        var rooms = LoadDir<RoomDef>(Path.Combine(root, "rooms"), r => r.RoomId);
+        var furni = LoadDir<FurniDef>(Path.Combine(root, "furni"), f => f.FurniId);
+        Rooms = rooms; Furni = furni; _root = root;
+    }
+
+    /// <summary>
+    /// 디스크에서 다시 읽는다 (`/admin/reload-defs`).
+    ///
+    /// **한계**: 이미 만들어진 방은 생성 시점의 `RoomDef` 를 들고 있어 **모양·정원이 바뀌지 않는다**(재시작 필요).
+    /// 가구 정의는 룸이 `DefinitionStore` 를 통해 찾으므로 **즉시 반영된다** — 가격·상태·판매값 수정이 주 용도다.
+    /// </summary>
+    public void Reload()
+    {
+        if (_root.Length == 0) throw new InvalidOperationException("아직 Load 한 적이 없습니다");
+        Load(_root);
     }
 
     private static Dictionary<string, T> LoadDir<T>(string dir, Func<T, string> key)

@@ -32,20 +32,11 @@ public sealed class TcpHost : BackgroundService
             {
                 var tcp = await listener.AcceptTcpClientAsync(ct);
                 tcp.NoDelay = true;
-                _ = HandleClient(tcp);
+                _ = SessionRunner.Run(new TcpTransport(tcp), _dispatcher, _lf, _save, _online, _log);
             }
         }
         catch (OperationCanceledException) { }
         finally { listener.Stop(); }
     }
 
-    private async Task HandleClient(TcpClient tcp)
-    {
-        await using var session = new Session(tcp, _lf.CreateLogger<Session>(), _save);
-        _log.LogInformation("session {Id} connected from {EP}", session.Id, tcp.Client.RemoteEndPoint);
-        await session.ReceiveLoop(_dispatcher);
-        session.Room?.Post(new RoomCommand.Leave(session));
-        _online.Release(session.Nick, session.Id);      // 반드시 놓아야 그 닉으로 다시 들어올 수 있다
-        _log.LogInformation("session {Id} disconnected", session.Id);
-    }
 }

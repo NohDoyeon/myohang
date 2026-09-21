@@ -38,7 +38,7 @@ public static class HandlerRegistration
                 }
             }
 
-            if (!online.TryClaim(nick, s.Id))
+            if (!online.TryClaim(nick, s))
             {
                 save.LogLogin(nick, "game", false, "이미 접속 중");
                 s.Send(Opcode.S_LoginResult, new S_LoginResult { Ok = false, Reason = "이미 접속 중인 닉네임이에요" });

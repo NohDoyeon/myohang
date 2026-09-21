@@ -56,7 +56,9 @@ var opt = builder.Configuration.GetSection("Server").Get<ServerOptions>() ?? new
 builder.WebHost.UseUrls($"http://0.0.0.0:{opt.WebPort}");
 
 var app = builder.Build();
+app.UseWebSockets();          // /ws — 브라우저 클라이언트가 붙는 곳 (docs/web-client-plan.md 단계 0)
 app.MapHarbor(Path.Combine(AppContext.BaseDirectory, "web"));
+app.MapAdmin();               // /admin — HARBOR_ADMIN_TOKEN 이 있을 때만 열린다 (docs/platform-plan.md §7)
 
 var defs = app.Services.GetRequiredService<DefinitionStore>();
 var save = app.Services.GetRequiredService<SaveStore>();
@@ -83,7 +85,7 @@ foreach (var r in defs.Rooms.Values.Where(r => r.Kind != "public"))
 foreach (var r in defs.Rooms.Values.Where(r => r.Kind == "public")) rooms.Create(r.RoomId);
 int restored = rooms.RestoreSaved();
 Console.WriteLine($"[Harbor] rooms={defs.Rooms.Count} furni={defs.Furni.Count} 저장된방={restored} 저장된유저={save.UserCount}");
-Console.WriteLine($"[Harbor] 게임 :{opt.Port}  ·  웹 http://localhost:{opt.WebPort}");
+Console.WriteLine($"[Harbor] 게임 :{opt.Port}  ·  웹 http://localhost:{opt.WebPort}  ·  브라우저 ws://localhost:{opt.WebPort}/ws");
 Console.WriteLine($"[Harbor] 저장 PostgreSQL {save.Describe()}");
 
 await app.RunAsync();

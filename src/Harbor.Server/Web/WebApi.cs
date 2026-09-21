@@ -50,6 +50,30 @@ public static class WebApi
             return Results.Ok(new { ok = true, nick, created, ticket = tickets.Issue(nick), expiresInSeconds = (int)TicketStore.Lifetime.TotalSeconds });
         });
 
+        // ----- 브라우저용 게임 연결 -----
+        //
+        // 브라우저는 raw TCP 를 열 수 없다. 그래서 웹 클라이언트는 TCP 30000 대신 여기로 붙는다.
+        // **프로토콜은 완전히 같다** — 같은 프레임, 같은 opcode, 같은 Dispatcher, 같은 Session.
+        // 로그인도 그대로 `C_Login` 으로 한다(주소에 입장권을 싣지 않는다 — URL 은 로그·히스토리에 남는다).
+        //
+        // ⚠ 공개할 때는 반드시 **wss**(TLS)여야 한다. HTTPS 페이지는 ws:// 를 거부하고,
+        //    무엇보다 지금 연결은 평문이라 비밀번호가 그대로 흐른다 → docs/web-client-plan.md §3
+        app.Map("/ws", async (HttpContext http, Dispatcher dispatcher, ILoggerFactory lf,
+                              SaveStore save, OnlineUsers online) =>
+        {
+            if (!http.WebSockets.IsWebSocketRequest)
+            {
+                http.Response.StatusCode = StatusCodes.Status400BadRequest;
+                await http.Response.WriteAsync("WebSocket 전용 주소입니다");
+                return;
+            }
+
+            using var ws = await http.WebSockets.AcceptWebSocketAsync();
+            var log = lf.CreateLogger("Harbor.Ws");
+            var remote = http.Connection.RemoteIpAddress?.ToString() ?? "?";
+            await SessionRunner.Run(new WebSocketTransport(ws, remote), dispatcher, lf, save, online, log);
+        });
+
         // gamePort 는 랜딩 페이지가 입장권에 서버 주소를 실어 주기 위해 쓴다.
         // (주소가 없으면 테스터 PC 의 클라이언트가 127.0.0.1 = 자기 자신에게 접속을 시도한다.)
         app.MapGet("/api/status", (RoomManager rooms, OnlineUsers online, IOptions<ServerOptions> opt) => Results.Ok(new

@@ -1,4 +1,4 @@
-using System.Net.Sockets;
+using System.Net.WebSockets;
 using System.Threading.Channels;
 using Harbor.Protocol;
 using Harbor.Server.Data;
@@ -8,7 +8,8 @@ using Microsoft.Extensions.Logging;
 namespace Harbor.Server.Net;
 
 /// <summary>
-/// TCP 세션 1개. 수신 루프 → Dispatcher, 송신은 Channel 직렬화.
+/// 접속 1개. 수신 루프 → Dispatcher, 송신은 Channel 직렬화.
+/// **전송 수단은 `ITransport` 가 감춘다** — TCP(데스크톱 클라)든 WebSocket(브라우저)이든 여기는 같다.
 /// 지갑/가방은 MVP 메모리 상주(영속 계층 전). 세션 스레드와 룸 루프 스레드 양쪽에서 만지므로 lock 으로 보호.
 /// </summary>
 public sealed class Session : IAsyncDisposable
@@ -20,8 +21,7 @@ public sealed class Session : IAsyncDisposable
     public RoomInstance? Room { get; set; }
     public long HomeRoomId { get; set; }
 
-    private readonly TcpClient _tcp;
-    private readonly NetworkStream _stream;
+    private readonly ITransport _transport;
     private readonly Channel<byte[]> _outbox = Channel.CreateUnbounded<byte[]>(new() { SingleReader = true });
     private readonly ILogger _log;
     private readonly CancellationTokenSource _cts = new();
@@ -137,9 +137,15 @@ public sealed class Session : IAsyncDisposable
     public void Notice(string text) => Send(Opcode.S_Notice, new S_Notice { Text = text });
     public void SendWallet() => Send(Opcode.S_WalletUpdate, new S_WalletUpdate { Rupee = Rupee, Cash = 0 });
 
-    public Session(TcpClient tcp, ILogger log, SaveStore? save = null)
+    public string Remote => _transport.Remote;
+    public DateTime ConnectedUtc { get; } = DateTime.UtcNow;
+
+    /// <summary>관리자 킥·서버 종료용. 수신 루프가 끝나면서 `SessionRunner` 가 방 퇴장·Release 까지 정리한다.</summary>
+    public void Close() => _cts.Cancel();
+
+    public Session(ITransport transport, ILogger log, SaveStore? save = null)
     {
-        _tcp = tcp; _stream = tcp.GetStream(); _log = log; _save = save;
+        _transport = transport; _log = log; _save = save;
         _ = Task.Run(SendLoop);
     }
 
@@ -153,7 +159,7 @@ public sealed class Session : IAsyncDisposable
         {
             while (!_cts.IsCancellationRequested)
             {
-                int n = await _stream.ReadAsync(buf.AsMemory(filled), _cts.Token);
+                int n = await _transport.ReceiveAsync(buf.AsMemory(filled), _cts.Token);
                 if (n == 0) break;
                 filled += n;
                 ReadOnlyMemory<byte> view = buf.AsMemory(0, filled);
@@ -163,7 +169,7 @@ public sealed class Session : IAsyncDisposable
                 filled = view.Length;
             }
         }
-        catch (Exception ex) when (ex is IOException or OperationCanceledException or InvalidDataException)
+        catch (Exception ex) when (ex is IOException or OperationCanceledException or InvalidDataException or WebSocketException)
         {
             _log.LogDebug("session {Id} closed: {Msg}", Id, ex.Message);
         }
@@ -174,16 +180,15 @@ public sealed class Session : IAsyncDisposable
         try
         {
             await foreach (var frame in _outbox.Reader.ReadAllAsync(_cts.Token))
-                await _stream.WriteAsync(frame, _cts.Token);
+                await _transport.SendAsync(frame, _cts.Token);
         }
         catch (Exception) { /* 소켓 종료 */ }
     }
 
-    public ValueTask DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         _cts.Cancel();
         _outbox.Writer.TryComplete();
-        _tcp.Close();
-        return ValueTask.CompletedTask;
+        await _transport.DisposeAsync();
     }
 }

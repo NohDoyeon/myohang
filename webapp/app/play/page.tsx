@@ -8,10 +8,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { GameClient, gameUrl } from "@/lib/protocol/client";
 import { Op, opName } from "@/lib/protocol/opcode";
 import {
-  chatPacket, enterRoomPacket, loginPacket, movePacket, readChat, readError, readLoginResult,
-  readNotice, readRoomSnapshot, readUserAction, readUserEnter, readUserLeave, readUserPath,
-  readWallet, type RoomSnapshot,
+  chatPacket, enterRoomPacket, loginPacket, movePacket, placeItemPacket, readChat, readError,
+  readInvUpdate, readInventory, readLoginResult, readNotice, readRoomSnapshot, readUserAction,
+  readRoomList, readUserEnter, readUserLeave, readUserPath, readWallet, roomListPacket, sellPacket,
+  type InvEntry, type RoomInfo, type RoomSnapshot,
 } from "@/lib/protocol/packets";
+import Bag from "@/components/Bag";
+import RoomList from "@/components/RoomList";
 import { RoomRenderer } from "@/lib/game/room-renderer";
 import { attachWalkControl } from "@/lib/game/keyboard";
 import { takeTicket } from "@/lib/ticket";
@@ -30,6 +33,14 @@ export default function PlayPage() {
   const [log, setLog] = useState<LogLine[]>([]);
   const [chat, setChat] = useState<ChatLine[]>([]);
   const [draft, setDraft] = useState("");
+  const [inv, setInv] = useState<InvEntry[]>([]);
+  const [bagOpen, setBagOpen] = useState(false);
+  /** 놓으려고 고른 가구. 이게 있으면 방 클릭이 이동이 아니라 **배치**가 된다. */
+  const [placing, setPlacing] = useState<string | null>(null);
+  const placingRef = useRef<string | null>(null);
+  const [rooms, setRooms] = useState<RoomInfo[]>([]);
+  const [roomsOpen, setRoomsOpen] = useState(false);
+  const [myNick, setMyNick] = useState("");
 
   const client = useRef<GameClient | null>(null);
   const renderer = useRef<RoomRenderer | null>(null);
@@ -54,10 +65,12 @@ export default function PlayPage() {
         const r = readLoginResult(body);
         if (!r.ok) { setStatus(`로그인 거부: ${r.reason ?? "이유 없음"}`); add(r.reason ?? "거부", "bad"); return; }
         myId.current = r.userId;            // 키보드 이동이 "누구를" 옮길지 알아야 한다
+        setMyNick(r.nick);
         setStatus(`${r.nick} 님 접속 중`);
         if (r.notice) add(`공지: ${r.notice}`);
         client.current?.post(enterRoomPacket(r.homeRoomId));
         add(`→ C_EnterRoom(${r.homeRoomId})`, "out");
+        client.current?.post(roomListPacket());     // 어디로 갈 수 있는지 미리 받아 둔다
         return;
       }
       case Op.S_RoomSnapshot: {
@@ -99,7 +112,18 @@ export default function PlayPage() {
         setChat((prev) => [...prev.slice(-80), { nick: who?.nick ?? "?", text: c.text, mine: c.userId === myId.current }]);
         return;
       }
+      case Op.S_RoomList: setRooms(readRoomList(body)); return;
       case Op.S_WalletUpdate: setRupee(readWallet(body).rupee); return;
+      case Op.S_Inventory: setInv(readInventory(body).filter((i) => i.qty > 0)); return;
+      case Op.S_InventoryUpdate: {
+        // Qty 는 변화량이 아니라 **현재 보유 수량**이다. 0 이면 목록에서 뺀다.
+        const e = readInvUpdate(body);
+        setInv((prev) => {
+          const rest = prev.filter((i) => i.furniId !== e.furniId);
+          return e.qty > 0 ? [...rest, e].sort((a, b) => a.name.localeCompare(b.name, "ko")) : rest;
+        });
+        return;
+      }
       case Op.S_Notice: add(`공지: ${readNotice(body).text}`, "in"); return;
       case Op.S_Error: { const e = readError(body); add(`오류 ${e.code}: ${e.message}`, "bad"); return; }
       default: add(`← ${opName(op)}`, "in");
@@ -112,6 +136,16 @@ export default function PlayPage() {
     const r = new RoomRenderer({
       onTileClick: (x, y) => {
         if (!client.current?.connected) return;
+        // 놓을 가구를 골라 뒀으면 클릭은 **배치**다. 한 번 놓으면 모드가 풀린다
+        // (연달아 놓고 싶으면 가방에서 다시 고른다 — 실수로 계속 놓이는 게 더 나쁘다).
+        const furniId = placingRef.current;
+        if (furniId) {
+          client.current.post(placeItemPacket(furniId, x, y));
+          add(`→ C_PlaceItem(${furniId} @ ${x},${y})`, "out");
+          placingRef.current = null;
+          setPlacing(null);
+          return;
+        }
         client.current.post(movePacket(x, y));
         add(`→ C_Move(${x}, ${y})`, "out");
       },
@@ -160,6 +194,32 @@ export default function PlayPage() {
     },
   }), []);
 
+  const enterRoom = useCallback((roomId: number) => {
+    if (!client.current?.connected) return;
+    client.current.post(enterRoomPacket(roomId));
+    add(`→ C_EnterRoom(${roomId})`, "out");
+    setRoomsOpen(false);
+  }, [add]);
+
+  const refreshRooms = useCallback(() => {
+    if (!client.current?.connected) return;
+    client.current.post(roomListPacket());
+  }, []);
+
+  const sell = useCallback((furniId: string, qty: number) => {
+    if (!client.current?.connected) return;
+    client.current.post(sellPacket(furniId, qty));
+    add(`→ C_SellItem(${furniId} ×${qty})`, "out");
+    // 화면을 직접 고치지 않는다 — S_InventoryUpdate·S_WalletUpdate 가 돌아오면 그때 바뀐다.
+  }, [add]);
+
+  const startPlacing = useCallback((furniId: string) => {
+    const next = placingRef.current === furniId ? null : furniId;   // 같은 걸 다시 누르면 취소
+    placingRef.current = next;
+    setPlacing(next);
+    if (next) add(`놓을 자리를 클릭하세요 — ${next}`);
+  }, [add]);
+
   const send = useCallback(() => {
     const text = draft.trim();
     if (text.length === 0 || !client.current?.connected) return;
@@ -177,6 +237,18 @@ export default function PlayPage() {
     // connect 는 입력값에 의존하지만, 여기서는 **처음 한 번만** 자동 접속하면 된다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Esc — 놓기 취소. 고른 채로 방을 클릭하면 엉뚱한 데 놓이므로 빠져나갈 길이 있어야 한다.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || !placingRef.current) return;
+      placingRef.current = null;
+      setPlacing(null);
+      add("놓기를 취소했어요");
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [add]);
 
   useEffect(() => () => client.current?.close(), []);
 
@@ -239,10 +311,39 @@ export default function PlayPage() {
           )}
 
           <p style={S.caption}>
-            <strong>{snapshot.room.name}</strong> · {snapshot.room.templateId} · {snapshot.room.width}×{snapshot.room.height}
-            {" · "}가구 {snapshot.items.length}
-            <span style={S.keys}>클릭 또는 화살표·WASD 로 이동</span>
+            <strong>{snapshot.room.name}</strong> · 가구 {snapshot.items.length}
+            <button onClick={() => { setRoomsOpen((v) => !v); refreshRooms(); }} style={S.bagBtn}>
+              방 목록
+            </button>
+            <button onClick={() => setBagOpen((v) => !v)} style={S.bagBtn}>
+              가방 {inv.length > 0 && `(${inv.length})`}
+            </button>
+            <span style={S.keys}>
+              {placing ? "놓을 자리를 클릭하세요 · Esc 로 취소" : "클릭 또는 화살표·WASD 로 이동"}
+            </span>
           </p>
+
+          {roomsOpen && (
+            <RoomList
+              rooms={rooms}
+              currentId={snapshot.room.id}
+              myNick={myNick}
+              onEnter={enterRoom}
+              onRefresh={refreshRooms}
+              onClose={() => setRoomsOpen(false)}
+            />
+          )}
+
+          {bagOpen && (
+            <Bag
+              items={inv}
+              rupee={rupee}
+              onSell={sell}
+              onPlace={startPlacing}
+              placing={placing}
+              onClose={() => setBagOpen(false)}
+            />
+          )}
         </>
       )}
 
@@ -279,6 +380,7 @@ const S: Record<string, React.CSSProperties> = {
   canvas: { width: "100%", height: "min(62vh, 560px)", borderRadius: 10, overflow: "hidden", background: "#171614", border: "1px solid #2f2d2a" },
   caption: { fontSize: 13, opacity: 0.75, margin: "10px 0 12px", display: "flex", gap: 8, flexWrap: "wrap" },
   keys: { marginLeft: "auto", opacity: 0.7 },
+  bagBtn: { padding: "4px 12px", borderRadius: 7, border: "1px solid #3a3733", background: "transparent", color: "inherit", fontSize: 12.5, cursor: "pointer" },
   chatBar: { display: "flex", gap: 8, marginTop: 10 },
   chatInput: { flex: 1, padding: "10px 12px", borderRadius: 8, border: "1px solid #3a3733", background: "#1b1a18", color: "inherit", fontSize: 14 },
   chatSend: { padding: "10px 16px", borderRadius: 8, border: 0, background: "#c98c4b", color: "#1b1a18", fontWeight: 600, fontSize: 14, cursor: "pointer" },

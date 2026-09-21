@@ -115,6 +115,76 @@ export const readChat = (v: unknown) => {
 };
 export const readWallet = (v: unknown) => { const a = arr(v); return { rupee: num(a[0]), cash: num(a[1]) }; };
 
+// ---------- 방 목록 ----------
+export interface RoomInfo {
+  id: number;
+  name: string;
+  /** "public" = 누구나 오는 광장·댄스홀. "private" = 개인 집. */
+  kind: string;
+  ownerId: number;
+  ownerNick: string;
+  users: number;
+  maxUsers: number;
+}
+
+export const readRoomInfo = (v: unknown): RoomInfo => {
+  const a = arr(v);
+  return {
+    id: num(a[0]), name: str(a[1]), kind: str(a[2]),
+    ownerId: num(a[3]), ownerNick: str(a[4]),
+    users: num(a[5]), maxUsers: num(a[6], 25),
+  };
+};
+
+export const readRoomList = (v: unknown): RoomInfo[] => arr(arr(v)[0]).map(readRoomInfo);
+
+export const roomListPacket = () => ({ op: Op.C_RoomList, body: [] });
+
+// ---------- 가방 ----------
+export interface InvEntry {
+  furniId: string;
+  name: string;
+  qty: number;
+  wall: boolean;
+  interaction: string;
+  /** 0 이면 팔 수 없다(수확물만 팔린다). */
+  sellPrice: number;
+  /** 묶음 단위. 0 이면 묶음 없음. 묶음이 낱개×개수보다 비싸야 "모아서 파는" 의미가 있다. */
+  sellBundleQty: number;
+  sellBundlePrice: number;
+}
+
+/**
+ * ⚠ **`S_Inventory` 의 항목과 `S_InventoryUpdate` 는 자리 순서가 다르다.**
+ *   InventoryEntry    : [furniId, **name**, **qty**, wall, …]
+ *   S_InventoryUpdate : [furniId, **qty**,  **name**, wall, …]
+ * 1번과 2번이 뒤바뀌어 있다. 같은 읽기 함수를 쓰면 이름 자리에 숫자가 들어간다.
+ */
+const readInvEntryTail = (a: unknown[], furniId: string, name: string, qty: number): InvEntry => ({
+  furniId, name, qty,
+  wall: bool(a[3]), interaction: str(a[4]),
+  sellPrice: num(a[5]), sellBundleQty: num(a[6]), sellBundlePrice: num(a[7]),
+});
+
+export const readInvEntry = (v: unknown): InvEntry => {
+  const a = arr(v);
+  return readInvEntryTail(a, str(a[0]), str(a[1]), num(a[2]));
+};
+
+/** S_InventoryUpdate — **Qty 는 변화량이 아니라 현재 보유 수량(절대값)**. 0 이면 목록에서 뺀다. */
+export const readInvUpdate = (v: unknown): InvEntry => {
+  const a = arr(v);
+  return readInvEntryTail(a, str(a[0]), str(a[2]), num(a[1]));
+};
+
+export const readInventory = (v: unknown): InvEntry[] => arr(arr(v)[0]).map(readInvEntry);
+
+// ---------- C → S (가방) ----------
+export const inventoryPacket = () => ({ op: Op.C_Inventory, body: [] });
+export const sellPacket = (furniId: string, qty = 1) => ({ op: Op.C_SellItem, body: [furniId, qty] });
+export const placeItemPacket = (furniId: string, x: number, y: number, dir = 2, wallU = 0, wallV = 0, tilt = 0) =>
+  ({ op: Op.C_PlaceItem, body: [furniId, x, y, dir, wallU, wallV, tilt] });
+
 // ---------- C → S ----------
 // 배열의 **자리**가 [Key] 번호다. 빠뜨리면 그 자리가 null 로 가서 서버가 기본값을 본다.
 export const loginPacket = (login: string, token: string) => ({ op: Op.C_Login, body: [login, token] });

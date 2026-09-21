@@ -32,25 +32,51 @@
 
 **만나고, 걷고, 대화가 된다.** 기능상 친구를 부를 수 있는 상태다.
 
-### ▶ 다음: 바깥에서 접속 가능하게
+### ✅ 배포도 끝남 — **https://myohang.vercel.app 링크 하나로 들어간다**
 
-지금은 **웹앱 :3000, 게임서버 :8080 으로 나뉘어 있고 둘 다 localhost** 라 남이 못 들어온다.
-
-가려는 구조:
 ```
-브라우저 ──https──▶ Vercel (Next.js: 랜딩·로그인·게임·관리자)
+브라우저 ──https──▶ Vercel (Next.js)
          ──wss────▶ Cloudflare Tunnel ──▶ 내 PC :8080/ws
 ```
 
-할 일:
-1. `landing/api/login.js` → **`webapp/app/api/login/route.ts`** 로 옮기기 (입장권 발급)
-2. 랜딩·로그인 화면을 webapp 으로 옮기고, 로그인 성공 시 입장권을 **sessionStorage** 에 넣고 `/play` 로
-   (URL 에 싣지 않는다 — 서버 로그·브라우저 히스토리에 남는다)
-3. Vercel **Root Directory 를 `landing` → `webapp`** 으로 변경 + 환경변수 `NEXT_PUBLIC_GAME_WS`
-4. `cloudflared tunnel --url http://localhost:8080` → 받은 주소를 `NEXT_PUBLIC_GAME_WS=wss://…/ws` 에
-5. 다른 PC 에서 접속 확인
+**사람을 부르려면 내 PC 에서 두 개가 떠 있어야 한다** (둘 다 끄면 접속 불가):
+```
+! cd /c/Users/User/Desktop/harbor && bash tools/run-server.sh
+! "/c/Program Files (x86)/cloudflared/cloudflared.exe" tunnel --url http://localhost:8080
+```
+⚠ 터널 주소는 **재시작할 때마다 바뀐다** → 바뀌면 Vercel 의 `NEXT_PUBLIC_GAME_WS` 를 고치고 **재배포**해야 한다.
+고정하려면 Cloudflare 계정 + 도메인이 필요하다.
 
-> `landing/` 은 4번이 끝날 때까지 지우지 않는다 — 지금 실제로 서비스 중인 페이지다.
+확인 한 줄:
+```
+! for p in / /play; do printf "%-8s " "$p"; curl -s -o /dev/null -w "%{http_code}\n" "https://myohang.vercel.app$p"; done; echo -n "터널="; curl -s https://myohang.vercel.app/play | grep -c trycloudflare
+```
+
+> **Vercel 설정 함정** (여기서 두 시간 잃었다): `Settings → Build and Deployment → Framework Preset` 이
+> **`Next.js`** 여야 한다. `landing` 시절의 `Other` 가 남아 있으면 **빌드는 성공하는데 전 경로가 404** 다.
+> 빌드 로그로는 절대 알 수 없다. → WORKLOG 18차
+
+### ▶ 다음: 단계 5 — 가방 · 가구 놓기 · 상점
+
+지금 웹 화면은 **"기능이 되는지 확인하는 화면"** 이다. UI 는 최소로만 있다.
+Godot 의 `HudView.cs`(656줄)에 있던 것들이 통째로 다시 쓸 대상이다:
+
+| | 웹 | Godot |
+|---|---|---|
+| 로그인·방·이동·채팅 | ✅ | ✅ |
+| **가방 · 상점 · 가구 놓기** | ❌ | ✅ |
+| **방 목록 · 이사 · 외모** | ❌ | ✅ |
+| **디자인(팝플풍 HUD)** | 임시 | ✅ |
+
+서버는 이미 `S_Inventory`·`S_Catalog`·`S_WalletUpdate` 를 **로그인 직후에 보내고 있다** — 받아서 그리기만 하면 된다.
+
+**디자인은 단계 5~6 을 만들면서 같이 잡는다.** 껍데기부터 예쁘게 만들면 기능을 끼울 때 매번 다시 손댄다.
+색·폰트 기준값은 Godot 의 `Ui.cs`(152줄)에 있고 `art/palette48.json` 에서 뽑은 것이라 그대로 가져오면 된다.
+
+### 정리할 것
+- `landing/` — 이제 안 쓴다. Vercel Root 가 `webapp` 이므로 지워도 된다(그 전에 한 번 더 확인)
+- Vercel 환경변수 `HARBOR_GAME_HOST`·`HARBOR_GAME_PORT` — 데스크톱 클라용이라 불필요
+- `HARBOR_TICKET_…` 에 **"Needs Attention"** 표시가 있었다 → 값이 `.env` 와 같은지 확인
 
 ### ✅ 관리 API 도 끝남 — 화면 없이 `curl` 로 운영 가능
 

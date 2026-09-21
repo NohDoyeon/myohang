@@ -12,11 +12,14 @@ import {
   readInvUpdate, readInventory, readLoginResult, readNotice, readRoomSnapshot, readUserAction,
   readRoomList, readUserEnter, readUserLeave, readUserPath, readWallet, roomListPacket, sellPacket,
   friendAddPacket, friendAnswerPacket, friendListPacket, friendRemovePacket, readFriendList,
-  type Friend, type InvEntry, type RoomInfo, type RoomSnapshot,
+  readItemAdd, readItemRemove, readItemState, readItemUpdate, offerItemPacket, pickItemPacket,
+  postitWritePacket, useItemPacket,
+  type Friend, type InvEntry, type ItemDto, type RoomInfo, type RoomSnapshot,
 } from "@/lib/protocol/packets";
 import Bag from "@/components/Bag";
 import RoomList from "@/components/RoomList";
 import Friends from "@/components/Friends";
+import Postit from "@/components/Postit";
 import { RoomRenderer } from "@/lib/game/room-renderer";
 import { attachWalkControl } from "@/lib/game/keyboard";
 import { takeTicket } from "@/lib/ticket";
@@ -36,6 +39,8 @@ export default function PlayPage() {
   const [chat, setChat] = useState<ChatLine[]>([]);
   const [draft, setDraft] = useState("");
   const [inv, setInv] = useState<InvEntry[]>([]);
+  /** 렌더러 콜백은 처음 만들어질 때 고정된다 → 최신 가방을 보려면 ref 로 들고 있어야 한다. */
+  const inventoryRef = useRef<InvEntry[]>([]);
   const [bagOpen, setBagOpen] = useState(false);
   /** 놓으려고 고른 가구. 이게 있으면 방 클릭이 이동이 아니라 **배치**가 된다. */
   const [placing, setPlacing] = useState<string | null>(null);
@@ -49,6 +54,9 @@ export default function PlayPage() {
   // 버튼에 바로 보여 줄 두 숫자. 목록을 열지 않아도 "누가 있나"와 "답할 게 있나"를 알 수 있어야 한다.
   const friendOnline = friends.filter((f) => f.state === "accepted" && f.online).length;
   const friendPending = friends.filter((f) => f.state === "pending").length;
+  /** 열어 둔 포스트잇. 서버가 상태를 바꿔 보내면 그대로 따라가야 하므로 id 만 들고 있는다. */
+  const [openItemId, setOpenItemId] = useState<number | null>(null);
+  const openItem = snapshot?.items.find((i) => i.id === openItemId) ?? null;
 
   const client = useRef<GameClient | null>(null);
   const renderer = useRef<RoomRenderer | null>(null);
@@ -120,16 +128,54 @@ export default function PlayPage() {
         setChat((prev) => [...prev.slice(-80), { nick: who?.nick ?? "?", text: c.text, mine: c.userId === myId.current }]);
         return;
       }
+      // ----- 가구 변화 -----
+      // 방 전체를 다시 그리지 않고 items 만 갈아끼운다. paint() 가 렌더러에 넘겨 다시 그린다.
+      case Op.S_ItemAdd: {
+        const it = readItemAdd(body);
+        const s = snapRef.current;
+        if (s) paint({ ...s, items: [...s.items.filter((i) => i.id !== it.id), it] });
+        return;
+      }
+      case Op.S_ItemUpdate: {
+        const it = readItemUpdate(body);
+        const s = snapRef.current;
+        if (s) paint({ ...s, items: s.items.map((i) => (i.id === it.id ? it : i)) });
+        return;
+      }
+      case Op.S_ItemRemove: {
+        const { itemId } = readItemRemove(body);
+        const s = snapRef.current;
+        if (s) paint({ ...s, items: s.items.filter((i) => i.id !== itemId) });
+        setOpenItemId((cur) => (cur === itemId ? null : cur));    // 떼어낸 포스트잇 창은 닫는다
+        return;
+      }
+      case Op.S_ItemState: {
+        const st = readItemState(body);
+        const s = snapRef.current;
+        if (s) paint({
+          ...s,
+          items: s.items.map((i) =>
+            i.id === st.itemId ? { ...i, state: st.state, extra: st.extra, usable: st.usable } : i),
+        });
+        return;
+      }
       case Op.S_RoomList: setRooms(readRoomList(body)); return;
       case Op.S_FriendList: setFriends(readFriendList(body)); return;
       case Op.S_WalletUpdate: setRupee(readWallet(body).rupee); return;
-      case Op.S_Inventory: setInv(readInventory(body).filter((i) => i.qty > 0)); return;
+      case Op.S_Inventory: {
+        const list = readInventory(body).filter((i) => i.qty > 0);
+        inventoryRef.current = list;
+        setInv(list);
+        return;
+      }
       case Op.S_InventoryUpdate: {
         // Qty 는 변화량이 아니라 **현재 보유 수량**이다. 0 이면 목록에서 뺀다.
         const e = readInvUpdate(body);
         setInv((prev) => {
           const rest = prev.filter((i) => i.furniId !== e.furniId);
-          return e.qty > 0 ? [...rest, e].sort((a, b) => a.name.localeCompare(b.name, "ko")) : rest;
+          const next = e.qty > 0 ? [...rest, e].sort((a, b) => a.name.localeCompare(b.name, "ko")) : rest;
+          inventoryRef.current = next;
+          return next;
         });
         return;
       }
@@ -149,7 +195,13 @@ export default function PlayPage() {
         // (연달아 놓고 싶으면 가방에서 다시 고른다 — 실수로 계속 놓이는 게 더 나쁘다).
         const furniId = placingRef.current;
         if (furniId) {
-          client.current.post(placeItemPacket(furniId, x, y));
+          // 벽걸이(포스트잇·액자)는 **벽이 있는 타일에 맞는 방향으로만** 붙는다.
+          // 서버가 `Walls.CanHang` 으로 같은 판정을 하므로, 여기서 골라 주지 않으면 그냥 거절당한다.
+          const wall = inventoryRef.current.find((i) => i.furniId === furniId)?.wall ?? false;
+          const dir = wall ? renderer.current?.wallDirAt(x, y) ?? null : 2;
+          if (wall && dir === null) { add("여기엔 벽이 없어요. 방 뒤쪽 벽에 붙여 보세요.", "bad"); return; }
+
+          client.current.post(placeItemPacket(furniId, x, y, dir ?? 2));
           add(`→ C_PlaceItem(${furniId} @ ${x},${y})`, "out");
           placingRef.current = null;
           setPlacing(null);
@@ -157,6 +209,16 @@ export default function PlayPage() {
         }
         client.current.post(movePacket(x, y));
         add(`→ C_Move(${x}, ${y})`, "out");
+      },
+      onItemClick: (itemId) => {
+        const it = snapRef.current?.items.find((i) => i.id === itemId);
+        if (!it || !client.current?.connected) return;
+
+        // 포스트잇은 창을 연다(읽기·쓰기). 나머지는 서버에 맡긴다.
+        if (it.interaction === "postit") { setOpenItemId(itemId); return; }
+        // 화분에 캣닢 꽂기 — 남의 방에서도 되는 두 가지 중 하나다.
+        if (it.interaction === "planter") { client.current.post(offerItemPacket(itemId)); return; }
+        client.current.post(useItemPacket(itemId));
       },
       onAtlas: (frames, floorTiles, wallTiles, error) => {
         add(`도트 ${frames}프레임 · 바닥 ${floorTiles}종 · 벽 ${wallTiles}종 로드`);
@@ -380,6 +442,16 @@ export default function PlayPage() {
             />
           )}
         </>
+      )}
+
+      {openItem && (
+        <Postit
+          item={openItem}
+          mine={openItem.author === myNick}
+          onWrite={(id, text) => { post(postitWritePacket(id, text)); }}
+          onPick={(id) => { post(pickItemPacket(id)); setOpenItemId(null); }}
+          onClose={() => setOpenItemId(null)}
+        />
       )}
 
       <details style={S.card}>

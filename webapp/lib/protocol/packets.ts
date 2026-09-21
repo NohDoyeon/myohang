@@ -115,6 +115,30 @@ export const readChat = (v: unknown) => {
 };
 export const readWallet = (v: unknown) => { const a = arr(v); return { rupee: num(a[0]), cash: num(a[1]) }; };
 
+// ---------- 가구 변화 ----------
+export const readItemAdd = (v: unknown) => readItem(arr(v)[0]);
+export const readItemUpdate = (v: unknown) => readItem(arr(v)[0]);
+export const readItemRemove = (v: unknown) => ({ itemId: num(arr(v)[0]) });
+
+/** 상태만 바뀐 것 — 포스트잇 글쓰기, 화분 자라기 등. Extra 는 포스트잇 본문이다. */
+export const readItemState = (v: unknown) => {
+  const a = arr(v);
+  return {
+    itemId: num(a[0]), state: str(a[1]),
+    extra: typeof a[2] === "string" ? a[2] : null,
+    usable: bool(a[3]),
+  };
+};
+
+/** 포스트잇 본문 쓰기. **글쓴이 본인만** 되고 서버가 200자에서 자른다. */
+export const postitWritePacket = (itemId: number, body: string) =>
+  ({ op: Op.C_PostitWrite, body: [itemId, body] });
+/** 가구 사용 — 의자 앉기·조명 켜기·화분 수확 등. */
+export const useItemPacket = (itemId: number) => ({ op: Op.C_UseItem, body: [itemId] });
+/** 남의 화분에 캣닢 꽂기(선물). 배치가 아니라 **이미 놓인 가구에 대한 상호작용**이다. */
+export const offerItemPacket = (itemId: number) => ({ op: Op.C_OfferItem, body: [itemId] });
+export const pickItemPacket = (itemId: number) => ({ op: Op.C_PickItem, body: [itemId] });
+
 // ---------- 친구 ----------
 export interface Friend {
   nick: string;

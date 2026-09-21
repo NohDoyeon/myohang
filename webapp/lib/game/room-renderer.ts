@@ -7,7 +7,7 @@
 //  2. 이동은 **서버가 준 경로를 클라가 보간**한다. 서버는 칸 단위로만 말하고(S_UserPath),
 //     칸당 시간은 `room.moveMs` 다. 이 값을 안 쓰고 임의 속도로 움직이면 서버 위치와 조금씩 어긋난다.
 
-import { Application, Container, Graphics, Sprite, Text, Texture, TilingSprite } from "pixi.js";
+import { Application, Container, Graphics, Rectangle, Sprite, Text, Texture, TilingSprite } from "pixi.js";
 import type { ItemDto, RoomSnapshot, TilePos, UserDto } from "@/lib/protocol/packets";
 import { Heightmap, TILE_H, TILE_W, Walls, depthKey, directionBetween, toScreen, toWorld } from "./iso";
 import { AvatarAtlas } from "./atlas";
@@ -18,13 +18,15 @@ const COLOR = {
   // 그림을 쓸 때는 **tint** 로 곱해지므로 흰색에 가까워야 원색이 산다.
   wallNorth: 0xffffff, wallWest: 0xd6cec4,
   door: 0xc98c4b,
-  item: 0x6f8f6a, itemWall: 0x7a7f9b,
+  item: 0x6f8f6a, itemWall: 0x7a7f9b, postitWritten: 0xe8d98a,
   body: 0xf0e2cf, bodyEdge: 0x3a2f28, face: 0x3a2f28,
   hover: 0xffffff,
 } as const;
 
 export interface RoomRendererEvents {
   onTileClick?: (x: number, y: number) => void;
+  /** 가구를 클릭했을 때. 포스트잇 읽기·화분에 캣닢 꽂기가 이 길로 간다. */
+  onItemClick?: (itemId: number) => void;
   /** 그림 로딩 결과. 0 이면 그 부분은 도형으로 그린다. */
   onAtlas?: (frames: number, floorTiles: number, wallTiles: number, error?: string) => void;
 }
@@ -205,12 +207,25 @@ export class RoomRenderer {
       const { sx, sy } = toScreen(it.x, it.y, it.z);
       if (it.wall) {
         const up = (it.wallV + 0.5) * TILE_H;
-        g.rect(sx - 10, sy - up - 10, 20, 20).fill({ color: COLOR.itemWall });
+        // 글이 쓰인 포스트잇은 색을 달리해 **읽을 게 있다**는 걸 보이게 한다.
+        const color = it.interaction === "postit" && it.state === "written" ? COLOR.postitWritten : COLOR.itemWall;
+        g.rect(sx - 10, sy - up - 10, 20, 20).fill({ color });
       } else {
         g.poly(diamond(sx, sy, 0.7)).fill({ color: COLOR.item });
         g.rect(sx - 8, sy - 18, 16, 18).fill({ color: COLOR.item, alpha: 0.85 });
       }
       g.zIndex = depthKey(it.x, it.y, it.z, it.wall ? -1 : 0);
+
+      // 클릭 받기. **터치를 고려해 판정 범위를 도형보다 넉넉히** 잡는다 —
+      // 포스트잇은 20px 라 손가락으로는 못 누른다(권장 최소 44px).
+      g.eventMode = "static";
+      g.cursor = "pointer";
+      g.hitArea = new Rectangle(sx - 22, sy - (it.wall ? (it.wallV + 0.5) * TILE_H : 0) - 30, 44, 44);
+      g.on("pointertap", (e) => {
+        e.stopPropagation();          // 안 막으면 바닥 클릭으로도 잡혀 캐릭터가 걸어간다
+        this.events.onItemClick?.(it.id);
+      });
+
       this.objects.addChild(g);
     }
   }
@@ -295,6 +310,19 @@ export class RoomRenderer {
 
   isWalkable(x: number, y: number): boolean {
     return this.map?.walkable(x, y) ?? false;
+  }
+
+  /**
+   * 그 칸에 **벽걸이를 붙일 수 있는 방향**. 없으면 null.
+   * 포스트잇·액자는 벽이 있는 타일에만 붙고, 방향도 맞아야 한다(4 = 북쪽 벽, 2 = 서쪽 벽).
+   * 서버가 `Walls.CanHang` 으로 같은 판정을 하므로, 클라가 미리 골라 주지 않으면 그냥 거절당한다.
+   */
+  wallDirAt(x: number, y: number): number | null {
+    if (!this.map) return null;
+    const w = new Walls(this.map);
+    if (w.north(x, y)) return 4;
+    if (w.west(x, y)) return 2;
+    return null;
   }
 
   setAction(id: number, action: string, dir: number): void {

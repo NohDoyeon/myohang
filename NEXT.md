@@ -5,32 +5,52 @@
 
 ---
 
-## 🔴 지금 하던 일 — 웹 클라이언트 이전, 단계 1 (2026-09-21)
+## 🔴 지금 하던 일 — 웹 클라이언트, 단계 4까지 완료 (2026-09-21)
 
-**방향이 바뀌었다: 웹으로 간다.** 계획 전체는 **`docs/web-client-plan.md`** 를 읽을 것.
+**웹으로 간다.** 계획 전체는 **`docs/web-client-plan.md`**.
 
-- **서버는 C# 그대로.** 다시 쓰는 것은 `client-godot/scripts`(3,210줄)뿐이고, 서버·DB·프로토콜·아트·방 템플릿은 전부 남는다.
-- **Godot 클라에 새 기능을 넣지 않는다.** 클라 기능은 웹 쪽에만 쌓는다. 정리는 단계 7에서.
+- **서버는 C# 그대로.** 다시 쓰는 것은 `client-godot/scripts` 뿐이고, 서버·DB·프로토콜·아트·방 템플릿은 전부 남는다.
+- **Godot 클라에 새 기능을 넣지 않는다.** 정리는 단계 7에서.
 
-### ✅ 단계 0 끝남 (커밋 `39e907a`)
-
-`/ws` 가 열렸다. `Session` 에서 전송을 **`ITransport`** 로 분리해서 TCP(Godot)와 WebSocket(브라우저)이
-**같은 세션·핸들러·방 루프**를 지난다 → 웹 클라를 붙여도 서버에 게임 로직이 추가되지 않는다.
+### 띄우는 법 (두 개를 같이 켠다)
 
 ```
-[Harbor] 게임 :30000  ·  웹 http://localhost:8080  ·  브라우저 ws://localhost:8080/ws
+! cd /c/Users/User/Desktop/harbor && bash tools/run-server.sh          # 게임 :30000 · 웹 :8080 · /ws · /admin
+! cd /c/Users/User/Desktop/harbor/webapp && npm run dev                # http://localhost:3000
+```
+→ 브라우저에서 **http://localhost:3000/play** · 아틀라스 확인은 **/sprites**
+
+### ✅ 끝난 것 (단계 0~4)
+
+| 단계 | 내용 | 커밋 |
+|---|---|---|
+| 0 | `/ws` — `ITransport` 로 전송 분리, TCP·WS 가 **같은 세션·핸들러·방 루프**를 지난다 | `39e907a` |
+| 1 | TS 프로토콜(`framing`·`opcode`·`packets`) · WebSocket 접속 · 로그인 | `f9daa72` |
+| 2 | PixiJS 방 렌더링 + **바닥 타일 6종** + **벽 5종** | `f9daa72` `ef5ce7e` |
+| 3 | 이동 — 클릭 · 화살표 · WASD, 도트 캐릭터 8방향 | `f9daa72` |
+| 4 | 채팅 — 말풍선(Pixi Text) + 로그(React) | `ef5ce7e` |
+
+**만나고, 걷고, 대화가 된다.** 기능상 친구를 부를 수 있는 상태다.
+
+### ▶ 다음: 바깥에서 접속 가능하게
+
+지금은 **웹앱 :3000, 게임서버 :8080 으로 나뉘어 있고 둘 다 localhost** 라 남이 못 들어온다.
+
+가려는 구조:
+```
+브라우저 ──https──▶ Vercel (Next.js: 랜딩·로그인·게임·관리자)
+         ──wss────▶ Cloudflare Tunnel ──▶ 내 PC :8080/ws
 ```
 
-### ▶ 다음: 단계 1 — TypeScript 시작
+할 일:
+1. `landing/api/login.js` → **`webapp/app/api/login/route.ts`** 로 옮기기 (입장권 발급)
+2. 랜딩·로그인 화면을 webapp 으로 옮기고, 로그인 성공 시 입장권을 **sessionStorage** 에 넣고 `/play` 로
+   (URL 에 싣지 않는다 — 서버 로그·브라우저 히스토리에 남는다)
+3. Vercel **Root Directory 를 `landing` → `webapp`** 으로 변경 + 환경변수 `NEXT_PUBLIC_GAME_WS`
+4. `cloudflared tunnel --url http://localhost:8080` → 받은 주소를 `NEXT_PUBLIC_GAME_WS=wss://…/ws` 에
+5. 다른 PC 에서 접속 확인
 
-목표는 **브라우저에서 입장권으로 로그인해 `S_RoomSnapshot` 을 콘솔에 찍기**까지. 필요한 것 셋:
-
-1. `Framing` 의 TS 구현 — `[uint32 length][uint16 opcode][MessagePack body]` 리틀엔디언 (`Harbor.Protocol/Framing.cs`)
-2. `Packets.cs`(168줄) → TS 타입 · `Opcode.cs` → TS enum
-3. `/ws` 접속 후 `C_Login` (입장권을 **URL 에 싣지 않는다** — 연결 후 패킷으로 보낸다)
-
-여기가 뚫리면 단계 2~6 은 전부 그리기 작업이다. 라이브러리는 **PixiJS + @msgpack/msgpack**,
-**React 로 월드를 그리지 않는다**(캔버스는 Pixi 게임 루프, React 는 채팅·인벤토리 등 주변부).
+> `landing/` 은 4번이 끝날 때까지 지우지 않는다 — 지금 실제로 서비스 중인 페이지다.
 
 ### ✅ 관리 API 도 끝남 — 화면 없이 `curl` 로 운영 가능
 

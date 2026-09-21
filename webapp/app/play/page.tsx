@@ -14,6 +14,7 @@ import {
 } from "@/lib/protocol/packets";
 import { RoomRenderer } from "@/lib/game/room-renderer";
 import { attachWalkControl } from "@/lib/game/keyboard";
+import { takeTicket } from "@/lib/ticket";
 
 interface LogLine { at: string; text: string; kind: "in" | "out" | "info" | "bad" }
 interface ChatLine { nick: string; text: string; mine: boolean }
@@ -128,13 +129,16 @@ export default function PlayPage() {
     return () => { dead = true; r.destroy(); renderer.current = null; };
   }, [add]);
 
-  const connect = useCallback(() => {
+  const connect = useCallback((withLogin?: string, withToken?: string) => {
+    const nick = (withLogin ?? login).trim();
+    const secret = (withToken ?? token).trim();
     const c = new GameClient({
       onFrame,
       onOpen: () => {
         setStatus("연결됨 — 로그인 중");
         add(`연결: ${gameUrl()}`);
-        c.post(loginPacket(login.trim(), token.trim()));
+        // 입장권으로 들어오면 닉은 서버가 서명에서 읽으므로 빈 값으로 보낸다.
+        c.post(loginPacket(nick, secret));
         add("→ C_Login", "out");
       },
       onClose: (why) => { setStatus(`끊김 (${why})`); add(`끊김: ${why}`, "bad"); },
@@ -165,6 +169,15 @@ export default function PlayPage() {
     // 그걸 기다려야 **남에게 보이는 것과 같은 내용**(길이 제한 적용 후)이 보인다.
   }, [draft]);
 
+  // 첫 화면에서 로그인해 왔으면 입장권이 sessionStorage 에 있다 → 바로 접속한다.
+  // 없으면(주소를 직접 친 경우) 아래 폼이 나온다.
+  useEffect(() => {
+    const t = takeTicket();
+    if (t) connect("", t);
+    // connect 는 입력값에 의존하지만, 여기서는 **처음 한 번만** 자동 접속하면 된다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => () => client.current?.close(), []);
 
   return (
@@ -188,7 +201,7 @@ export default function PlayPage() {
               <input type="password" value={token} onChange={(e) => setToken(e.target.value)} style={S.input} placeholder="t1.… 또는 비밀번호" />
             </label>
           </div>
-          <button onClick={connect} style={S.button}>접속</button>
+          <button onClick={() => connect()} style={S.button}>접속</button>
           <p style={S.hint}>서버: {gameUrl() || "(NEXT_PUBLIC_GAME_WS 없음)"}</p>
         </section>
       )}

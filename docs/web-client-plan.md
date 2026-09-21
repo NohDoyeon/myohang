@@ -123,6 +123,30 @@ WebSocket 은 HTTPS 위에서 도니 해당 없다 — 웹으로 옮기면서 �
 
 무료 `trycloudflare.com` 주소는 **실행할 때마다 바뀐다.** 고정하려면 계정 + 도메인이 필요하다.
 
+### 배포 절차 (2026-09-21 기준)
+
+```
+브라우저 ──https──▶ Vercel (webapp: 랜딩·로그인·게임·관리자)
+         ──wss────▶ Cloudflare Tunnel ──▶ 내 PC :8080/ws
+```
+
+**비밀번호는 게임 서버로 가지 않는다.** 웹이 Postgres 로 확인하고 **입장권만** 넘긴다
+(`webapp/app/api/login/route.ts` → sessionStorage → `/play` 가 `C_Login` 으로 제출).
+입장권을 URL 에 싣지 않는 이유는 서버 로그·브라우저 히스토리·`Referer` 에 남기 때문이다.
+
+1. **터널 열기** — `cloudflared tunnel --url http://localhost:8080`
+   → `https://<무작위>.trycloudflare.com` 을 준다. **실행할 때마다 주소가 바뀐다**(고정하려면 계정+도메인).
+   ⚠ 이 터널은 `:8080` 전체를 연다 — `/admin` 도 함께 공개된다. 토큰이 있어야 통과하지만 **테스트가 끝나면 끈다.**
+2. **Vercel 설정** — Settings → General → **Root Directory 를 `landing` → `webapp`**
+3. **환경변수** (Settings → Environment Variables), 견본은 `webapp/.env.example`
+   - `NEXT_PUBLIC_GAME_WS` = `wss://<터널주소>/ws`
+   - `HARBOR_DB` · `HARBOR_TICKET_SECRET` (게임 서버 `.env` 와 **같은 값**)
+   - **값을 바꾸면 반드시 Redeploy** — Vercel 은 배포 시점에 주입한다(16차에서 여기서 막혔다)
+4. **게임 서버를 켜 둔다** — `bash tools/run-server.sh`. PC 를 끄면 게임도 꺼진다.
+5. 다른 PC 에서 접속 확인.
+
+`landing/` 은 2번이 끝날 때까지 지우지 않는다 — 지금 실제로 서비스 중인 페이지다.
+
 ### 나중에 클라우드로 옮길 때를 위해 지금 지킬 것
 
 확장성을 위해 필요한 건 사실상 **주소를 코드에 박지 않는 것 하나**다.

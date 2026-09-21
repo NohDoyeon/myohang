@@ -1,69 +1,100 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+"use client";
+
+// 첫 화면 — 로그인해서 바로 게임으로 들어간다.
+//
+// 입장권은 **sessionStorage** 로 넘긴다. 주소창(`/play?t=…`)에 실으면 서버 접근 로그·브라우저 히스토리·
+// 프록시에 그대로 남는다. 입장권은 5분간 그 계정으로 입장할 수 있는 열쇠다.
+
+import { useRouter } from "next/navigation";
+import { useCallback, useState } from "react";
+import { TICKET_KEY } from "@/lib/ticket";
 
 export default function Home() {
+  const router = useRouter();
+  const [nick, setNick] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const submit = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nick: nick.trim(), password }),
+      });
+      const data = await res.json();
+      if (!data.ok) { setError(data.reason ?? "로그인에 실패했어요"); return; }
+
+      sessionStorage.setItem(TICKET_KEY, data.ticket);
+      router.push("/play");
+    } catch {
+      setError("서버에 연결할 수 없어요. 잠시 후 다시 시도해 주세요.");
+    } finally {
+      setBusy(false);
+    }
+  }, [busy, nick, password, router]);
+
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>
-            To get started, edit the{" "}
-            <code className={styles.code}>page.tsx</code> file.
-          </h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
+    <main style={S.page}>
+      <div style={S.card}>
+        <h1 style={S.title}>묘항</h1>
+        <p style={S.tagline}>고양이들이 사는 항구 마을</p>
+
+        <form onSubmit={submit} style={S.form}>
+          <label style={S.label}>
+            닉네임
+            <input
+              value={nick}
+              onChange={(e) => setNick(e.target.value.slice(0, 16))}
+              style={S.input}
+              placeholder="1~16자"
+              autoComplete="username"
+              autoFocus
             />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+          </label>
+          <label style={S.label}>
+            비밀번호
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              style={S.input}
+              placeholder="4~64자"
+              autoComplete="current-password"
+            />
+          </label>
+
+          {error && <p style={S.error}>{error}</p>}
+
+          <button type="submit" style={S.button} disabled={busy || nick.trim().length === 0 || password.length === 0}>
+            {busy ? "들어가는 중…" : "시작하기"}
+          </button>
+        </form>
+
+        <p style={S.note}>
+          처음 쓰는 닉네임이면 그 자리에서 가입됩니다.
+          <br />
+          아직 테스트 중이라 <b>아무 데도 쓰지 않는 비밀번호</b>를 써 주세요.
+        </p>
+      </div>
+    </main>
   );
 }
+
+const S: Record<string, React.CSSProperties> = {
+  page: { minHeight: "100dvh", display: "grid", placeItems: "center", padding: 16 },
+  card: { width: "100%", maxWidth: 360, background: "#1b1a18", border: "1px solid #2f2d2a", borderRadius: 14, padding: "28px 24px" },
+  title: { fontSize: 30, margin: "0 0 4px", letterSpacing: "0.06em" },
+  tagline: { fontSize: 13, opacity: 0.6, margin: "0 0 22px" },
+  form: { display: "flex", flexDirection: "column", gap: 14 },
+  label: { display: "flex", flexDirection: "column", gap: 6, fontSize: 13 },
+  input: { padding: "11px 12px", borderRadius: 8, border: "1px solid #3a3733", background: "#121110", color: "inherit", fontSize: 15 },
+  button: { marginTop: 4, padding: "12px", borderRadius: 8, border: 0, background: "#c98c4b", color: "#1b1a18", fontWeight: 700, fontSize: 15, cursor: "pointer" },
+  error: { margin: 0, fontSize: 13, color: "#ff9b9b" },
+  note: { fontSize: 12, opacity: 0.55, lineHeight: 1.7, margin: "20px 0 0" },
+};

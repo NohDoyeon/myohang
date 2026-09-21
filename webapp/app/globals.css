@@ -1,0 +1,21 @@
+:root {
+  --bg: #121110;
+  --fg: #e8e1d6;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", sans-serif;
+}
+
+/* 도트 아트가 들어오면 확대해도 뭉개지지 않아야 한다. 캔버스에 미리 걸어 둔다. */
+canvas { image-rendering: pixelated; display: block; }
+
+input, button { font-family: inherit; }
+button:hover { filter: brightness(1.08); }

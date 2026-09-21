@@ -12,6 +12,7 @@ import type { ItemDto, RoomSnapshot, TilePos, UserDto } from "@/lib/protocol/pac
 import { Heightmap, TILE_H, TILE_W, Walls, depthKey, directionBetween, toScreen, toWorld } from "./iso";
 import { AvatarAtlas } from "./atlas";
 import { FloorTiles, WallTiles } from "./tiles";
+import { FurniArt } from "./furni";
 
 const COLOR = {
   floorA: 0x8c7a63, floorB: 0x7d6c57, floorEdge: 0x5f5344,
@@ -28,7 +29,7 @@ export interface RoomRendererEvents {
   /** 가구를 클릭했을 때. 포스트잇 읽기·화분에 캣닢 꽂기가 이 길로 간다. */
   onItemClick?: (itemId: number) => void;
   /** 그림 로딩 결과. 0 이면 그 부분은 도형으로 그린다. */
-  onAtlas?: (frames: number, floorTiles: number, wallTiles: number, error?: string) => void;
+  onAtlas?: (frames: number, floorTiles: number, wallTiles: number, furni: number, error?: string) => void;
 }
 
 /** 화면에 보이는 사람 하나. 서버 좌표(정수 칸)와 별개로 **떠 있는 위치**(fx,fy)를 들고 움직인다. */
@@ -65,6 +66,7 @@ export class RoomRenderer {
   private atlas: AvatarAtlas | null = null;
   private tiles: FloorTiles | null = null;
   private wallTiles: WallTiles | null = null;
+  private furni: FurniArt | null = null;
 
   constructor(private readonly events: RoomRendererEvents = {}) {}
 
@@ -75,18 +77,20 @@ export class RoomRenderer {
 
     // 도트는 **있으면 쓰고 없으면 도형으로 간다.** 여기서 실패해도 방은 그려져야 한다.
     // 캐릭터와 바닥은 따로 잡는다 — 한쪽이 없다고 다른 쪽까지 도형이 될 이유가 없다.
-    const [atlas, tiles, walls] = await Promise.allSettled([
-      AvatarAtlas.load(), FloorTiles.load(), WallTiles.load(),
+    const [atlas, tiles, walls, furni] = await Promise.allSettled([
+      AvatarAtlas.load(), FloorTiles.load(), WallTiles.load(), FurniArt.load(),
     ]);
     if (atlas.status === "fulfilled") this.atlas = atlas.value;
     if (tiles.status === "fulfilled") this.tiles = tiles.value;
     if (walls.status === "fulfilled") this.wallTiles = walls.value;
+    if (furni.status === "fulfilled") this.furni = furni.value;
 
-    const failed = [atlas, tiles, walls].find((r) => r.status === "rejected");
+    const failed = [atlas, tiles, walls, furni].find((r) => r.status === "rejected");
     this.events.onAtlas?.(
       this.atlas?.size ?? 0,
       this.tiles?.size ?? 0,
       this.wallTiles?.size ?? 0,
+      this.furni?.size ?? 0,
       failed?.status === "rejected" ? String(failed.reason) : undefined,
     );
 
@@ -202,31 +206,47 @@ export class RoomRenderer {
   private drawItems(items: ItemDto[]) {
     for (const c of [...this.objects.children]) if (c.label?.startsWith("item:")) c.destroy();
     for (const it of items) {
-      const g = new Graphics();
-      g.label = `item:${it.id}`;
       const { sx, sy } = toScreen(it.x, it.y, it.z);
-      if (it.wall) {
-        const up = (it.wallV + 0.5) * TILE_H;
+      const up = it.wall ? (it.wallV + 0.5) * TILE_H : 0;
+      const texture = this.furni?.get(it.furniId, it.dir, it.state) ?? null;
+
+      // **컨테이너를 바닥 지점에 두고 안쪽은 전부 로컬 좌표로 그린다.**
+      // 스프라이트와 도형이 좌표계를 공유해야 클릭 판정을 한 번만 정의할 수 있다.
+      const node = new Container();
+      node.label = `item:${it.id}`;
+      node.position.set(sx, sy - up);
+
+      if (texture) {
+        const s = new Sprite(texture);
+        s.anchor.set(0.5, 1);       // 바닥에 닿는 면 기준 — 키가 달라도 같은 자리에 선다
+        node.addChild(s);
+      } else if (it.wall) {
         // 글이 쓰인 포스트잇은 색을 달리해 **읽을 게 있다**는 걸 보이게 한다.
         const color = it.interaction === "postit" && it.state === "written" ? COLOR.postitWritten : COLOR.itemWall;
-        g.rect(sx - 10, sy - up - 10, 20, 20).fill({ color });
+        node.addChild(new Graphics().rect(-10, -20, 20, 20).fill({ color }));
       } else {
-        g.poly(diamond(sx, sy, 0.7)).fill({ color: COLOR.item });
-        g.rect(sx - 8, sy - 18, 16, 18).fill({ color: COLOR.item, alpha: 0.85 });
+        node.addChild(
+          new Graphics()
+            .poly(diamond(0, 0, 0.7)).fill({ color: COLOR.item })
+            .rect(-8, -18, 16, 18).fill({ color: COLOR.item, alpha: 0.85 }),
+        );
       }
-      g.zIndex = depthKey(it.x, it.y, it.z, it.wall ? -1 : 0);
 
-      // 클릭 받기. **터치를 고려해 판정 범위를 도형보다 넉넉히** 잡는다 —
+      node.zIndex = depthKey(it.x, it.y, it.z, it.wall ? -1 : 0);
+
+      // 클릭 받기. **터치를 고려해 판정 범위를 그림보다 넉넉히** 잡는다 —
       // 포스트잇은 20px 라 손가락으로는 못 누른다(권장 최소 44px).
-      g.eventMode = "static";
-      g.cursor = "pointer";
-      g.hitArea = new Rectangle(sx - 22, sy - (it.wall ? (it.wallV + 0.5) * TILE_H : 0) - 30, 44, 44);
-      g.on("pointertap", (e) => {
+      const box = node.getLocalBounds();
+      const w = Math.max(44, box.width), h = Math.max(44, box.height);
+      node.eventMode = "static";
+      node.cursor = "pointer";
+      node.hitArea = new Rectangle(-w / 2, -h, w, h);
+      node.on("pointertap", (e) => {
         e.stopPropagation();          // 안 막으면 바닥 클릭으로도 잡혀 캐릭터가 걸어간다
         this.events.onItemClick?.(it.id);
       });
 
-      this.objects.addChild(g);
+      this.objects.addChild(node);
     }
   }
 

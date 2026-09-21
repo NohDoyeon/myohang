@@ -220,8 +220,8 @@ export default function PlayPage() {
         if (it.interaction === "planter") { client.current.post(offerItemPacket(itemId)); return; }
         client.current.post(useItemPacket(itemId));
       },
-      onAtlas: (frames, floorTiles, wallTiles, error) => {
-        add(`도트 ${frames}프레임 · 바닥 ${floorTiles}종 · 벽 ${wallTiles}종 로드`);
+      onAtlas: (frames, floorTiles, wallTiles, furni, error) => {
+        add(`도트 ${frames}프레임 · 바닥 ${floorTiles} · 벽 ${wallTiles} · 가구 ${furni}종 로드`);
         if (error) add(`일부 그림 없음(도형으로 그립니다): ${error}`, "bad");
       },
     });

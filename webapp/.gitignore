@@ -32,7 +32,9 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
-!.env.example        # 견본은 커밋한다 — 값은 비어 있고, 무엇을 채워야 하는지 알려 준다
+# 견본은 커밋한다 — 값은 비어 있고, 무엇을 채워야 하는지 알려 준다.
+# (Git 은 패턴 줄 끝의 주석을 지원하지 않는다. 주석은 반드시 따로.)
+!.env.example
 
 # vercel
 .vercel

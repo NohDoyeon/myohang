@@ -71,8 +71,9 @@
 - **자동 검사는 통과·실패를 둘 다 눈으로 본 뒤에 넣는다.** (.NET 문자열 상수는 **UTF-16** 이라 그냥 `grep` 하면 못 찾는다 → `tr -d '\000'`)
 - `S_InventoryUpdate.Qty` 는 델타가 아니라 **현재 보유 수량(절대값)**.
 - 방 템플릿은 규칙이 많다 → **`docs/room-template-spec.md`**. 넓히기 포함관계는 `RoomUpgradeTests` 가 지킨다.
-- 클라이언트는 **웹으로 내보낼 수 없다**(Godot .NET 빌드 제약). 웹 플레이는 GDScript 재작성 + WebSocket 이 필요하다.
-  → **서버·데이터에 넣은 것은 남고, 클라 UI 에 쌓은 것은 재작성 대상**이다.
+- **웹으로 간다 (2026-09-21 결정).** Godot 클라는 웹 클라가 따라잡은 뒤 정리한다 → **`docs/web-client-plan.md`**
+  → **지금부터 Godot 클라에 새 기능을 넣지 않는다.** 클라 기능은 웹 쪽에만 쌓는다.
+  → 서버·DB·프로토콜·아트·방 템플릿은 전부 남는다. 다시 쓰는 것은 `client-godot/scripts` 뿐이다.
 
 ## 문서 지도
 
@@ -81,7 +82,8 @@
 | `NEXT.md` | **이어서 할 때 가장 먼저** — 현재 상태·실행 명령·눈 확인 목록 |
 | `WORKLOG.md` | 왜 그렇게 했는지, 무엇에 걸렸는지 (라운드별) |
 | `docs/secrets.md` | 키·환경변수 관리 |
-| `docs/deploy-mvp.md` | GitHub·클라 내보내기·서버 공개·백업 |
+| `docs/web-client-plan.md` | **웹 이전(Next.js+TS+Pixi)** — 무엇이 남고 무엇을 다시 쓰는가·단계별 계획 |
+| `docs/deploy-mvp.md` | GitHub·클라 내보내기·서버 공개·백업 (웹 이전 후 대체 예정) |
 | `docs/platform-plan.md` | 관리자/팀 권한·공지·콘텐츠 반영 경로·접속 로그 |
 | `docs/room-template-spec.md` | 방 만들 때 (다른 AI 에 줄 프롬프트 포함) |
 | `art/ref/sprite-prompt.md` | 도트 의뢰·아틀라스 투입 절차 |

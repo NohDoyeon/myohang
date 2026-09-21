@@ -11,10 +11,12 @@ import {
   chatPacket, enterRoomPacket, loginPacket, movePacket, placeItemPacket, readChat, readError,
   readInvUpdate, readInventory, readLoginResult, readNotice, readRoomSnapshot, readUserAction,
   readRoomList, readUserEnter, readUserLeave, readUserPath, readWallet, roomListPacket, sellPacket,
-  type InvEntry, type RoomInfo, type RoomSnapshot,
+  friendAddPacket, friendAnswerPacket, friendListPacket, friendRemovePacket, readFriendList,
+  type Friend, type InvEntry, type RoomInfo, type RoomSnapshot,
 } from "@/lib/protocol/packets";
 import Bag from "@/components/Bag";
 import RoomList from "@/components/RoomList";
+import Friends from "@/components/Friends";
 import { RoomRenderer } from "@/lib/game/room-renderer";
 import { attachWalkControl } from "@/lib/game/keyboard";
 import { takeTicket } from "@/lib/ticket";
@@ -41,6 +43,12 @@ export default function PlayPage() {
   const [rooms, setRooms] = useState<RoomInfo[]>([]);
   const [roomsOpen, setRoomsOpen] = useState(false);
   const [myNick, setMyNick] = useState("");
+  const [friends, setFriends] = useState<Friend[]>([]);
+  const [friendsOpen, setFriendsOpen] = useState(false);
+
+  // 버튼에 바로 보여 줄 두 숫자. 목록을 열지 않아도 "누가 있나"와 "답할 게 있나"를 알 수 있어야 한다.
+  const friendOnline = friends.filter((f) => f.state === "accepted" && f.online).length;
+  const friendPending = friends.filter((f) => f.state === "pending").length;
 
   const client = useRef<GameClient | null>(null);
   const renderer = useRef<RoomRenderer | null>(null);
@@ -113,6 +121,7 @@ export default function PlayPage() {
         return;
       }
       case Op.S_RoomList: setRooms(readRoomList(body)); return;
+      case Op.S_FriendList: setFriends(readFriendList(body)); return;
       case Op.S_WalletUpdate: setRupee(readWallet(body).rupee); return;
       case Op.S_Inventory: setInv(readInventory(body).filter((i) => i.qty > 0)); return;
       case Op.S_InventoryUpdate: {
@@ -205,6 +214,17 @@ export default function PlayPage() {
     if (!client.current?.connected) return;
     client.current.post(roomListPacket());
   }, []);
+
+  // 친구 — 서버가 바뀔 때마다 목록을 통째로 다시 보내므로 화면을 직접 고치지 않는다.
+  const post = useCallback((p: { op: number; body: unknown }) => {
+    if (client.current?.connected) client.current.post(p);
+  }, []);
+
+  const visitFriend = useCallback((roomId: number, nick: string) => {
+    post(enterRoomPacket(roomId));
+    add(`${nick}님에게 놀러 갑니다`);
+    setFriendsOpen(false);
+  }, [add, post]);
 
   const sell = useCallback((furniId: string, qty: number) => {
     if (!client.current?.connected) return;
@@ -315,6 +335,10 @@ export default function PlayPage() {
             <button onClick={() => { setRoomsOpen((v) => !v); refreshRooms(); }} style={S.bagBtn}>
               방 목록
             </button>
+            <button onClick={() => { setFriendsOpen((v) => !v); post(friendListPacket()); }} style={S.bagBtn}>
+              친구{friendOnline > 0 && ` · ${friendOnline}명`}
+              {friendPending > 0 && <b style={S.badge}>{friendPending}</b>}
+            </button>
             <button onClick={() => setBagOpen((v) => !v)} style={S.bagBtn}>
               가방 {inv.length > 0 && `(${inv.length})`}
             </button>
@@ -322,6 +346,17 @@ export default function PlayPage() {
               {placing ? "놓을 자리를 클릭하세요 · Esc 로 취소" : "클릭 또는 화살표·WASD 로 이동"}
             </span>
           </p>
+
+          {friendsOpen && (
+            <Friends
+              friends={friends}
+              onAdd={(n) => post(friendAddPacket(n))}
+              onAnswer={(n, ok) => post(friendAnswerPacket(n, ok))}
+              onRemove={(n) => post(friendRemovePacket(n))}
+              onVisit={visitFriend}
+              onClose={() => setFriendsOpen(false)}
+            />
+          )}
 
           {roomsOpen && (
             <RoomList
@@ -381,6 +416,8 @@ const S: Record<string, React.CSSProperties> = {
   caption: { fontSize: 13, opacity: 0.75, margin: "10px 0 12px", display: "flex", gap: 8, flexWrap: "wrap" },
   keys: { marginLeft: "auto", opacity: 0.7 },
   bagBtn: { padding: "4px 12px", borderRadius: 7, border: "1px solid #3a3733", background: "transparent", color: "inherit", fontSize: 12.5, cursor: "pointer" },
+  // 받은 신청은 눈에 띄어야 한다 — 답하지 않으면 상대가 기다리는 상태다.
+  badge: { marginLeft: 6, padding: "1px 6px", borderRadius: 999, background: "#c98c4b", color: "#1b1a18", fontSize: 11 },
   chatBar: { display: "flex", gap: 8, marginTop: 10 },
   chatInput: { flex: 1, padding: "10px 12px", borderRadius: 8, border: "1px solid #3a3733", background: "#1b1a18", color: "inherit", fontSize: 14 },
   chatSend: { padding: "10px 16px", borderRadius: 8, border: 0, background: "#c98c4b", color: "#1b1a18", fontWeight: 600, fontSize: 14, cursor: "pointer" },

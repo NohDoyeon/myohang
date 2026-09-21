@@ -13,7 +13,8 @@ public static class HandlerRegistration
     private static long _nextUserId;
 
     public static void Register(Dispatcher d, RoomManager rooms, DefinitionStore defs, EconomyOptions eco, SaveStore save,
-                                OnlineUsers online, Accounts accounts, TicketStore tickets, ServerOptions srv)
+                                OnlineUsers online, Accounts accounts, TicketStore tickets, ServerOptions srv,
+                                Friends friends)
     {
         // ----- Auth -----
         // Token 에는 웹에서 받은 일회용 입장권이 오거나, 클라이언트 시작 화면에서 친 비밀번호가 온다.
@@ -90,6 +91,15 @@ public static class HandlerRegistration
             s.SendWallet();
             s.Send(Opcode.S_Inventory, Inventory(s, defs));
             s.Send(Opcode.S_Catalog, Catalog(defs));
+            s.Send(Opcode.S_FriendList, FriendList(friends, online, rooms, nick));
+
+            // 내가 들어온 걸 **친구들에게** 알린다. 접속 순간을 놓치면 "누가 있나"를 알 길이 없다.
+            foreach (var f in friends.List(nick).Where(f => f.State == "accepted"))
+                if (online.Find(f.FriendKey) is { } o)
+                {
+                    o.Notice($"{nick}님이 접속했어요.");
+                    o.Send(Opcode.S_FriendList, FriendList(friends, online, rooms, o.Nick));
+                }
             return Task.CompletedTask;
         });
         d.On<Empty>(Opcode.C_Ping, (s, _) => { s.Send(Opcode.S_Pong, new Empty()); return Task.CompletedTask; });
@@ -245,6 +255,72 @@ public static class HandlerRegistration
             });
             return Task.CompletedTask;
         });
+
+        // ----- 친구 -----
+        // 목록은 바뀔 때마다 통째로 다시 보낸다. 짧아서 부분 갱신을 만들 값어치가 없다.
+        void SendFriends(Session s) => s.Send(Opcode.S_FriendList, FriendList(friends, online, rooms, s.Nick));
+
+        d.On<Empty>(Opcode.C_FriendList, (s, _) => { SendFriends(s); return Task.CompletedTask; });
+
+        d.On<C_FriendAdd>(Opcode.C_FriendAdd, (s, p) =>
+        {
+            var reason = friends.Request(s.Nick, (p.Nick ?? "").Trim());
+            if (reason.Length > 0) { s.Notice(reason); return Task.CompletedTask; }
+
+            SendFriends(s);
+            // 상대가 접속 중이면 **바로** 알려 준다 — 목록을 다시 열어 봐야 아는 건 답답하다.
+            if (online.Find(p.Nick.Trim()) is { } other)
+            {
+                other.Notice($"{s.Nick}님이 친구 신청을 보냈어요.");
+                SendFriends(other);
+            }
+            return Task.CompletedTask;
+        });
+
+        d.On<C_FriendAnswer>(Opcode.C_FriendAnswer, (s, p) =>
+        {
+            var other = (p.Nick ?? "").Trim();
+            if (p.Accept) friends.Accept(s.Nick, other); else friends.Remove(s.Nick, other);
+            SendFriends(s);
+            if (online.Find(other) is { } o)
+            {
+                if (p.Accept) o.Notice($"{s.Nick}님과 친구가 되었어요!");
+                SendFriends(o);
+            }
+            return Task.CompletedTask;
+        });
+
+        d.On<C_FriendRemove>(Opcode.C_FriendRemove, (s, p) =>
+        {
+            var other = (p.Nick ?? "").Trim();
+            friends.Remove(s.Nick, other);
+            SendFriends(s);
+            if (online.Find(other) is { } o) SendFriends(o);   // 조용히 사라진다 — 알림까지 보낼 일은 아니다
+            return Task.CompletedTask;
+        });
+    }
+
+    /// <summary>
+    /// 친구 목록 + **지금 접속해 있는지, 어느 방에 있는지**.
+    /// 이 둘이 없으면 목록이 그냥 이름표라서, 놀러 가려면 방 목록을 따로 뒤져야 한다.
+    /// </summary>
+    private static S_FriendList FriendList(Friends friends, OnlineUsers online, RoomManager rooms, string nick)
+    {
+        var list = new List<FriendDto>();
+        foreach (var r in friends.List(nick))
+        {
+            var session = online.Find(r.FriendKey);
+            var room = session?.Room;
+            list.Add(new FriendDto
+            {
+                Nick = r.Nick, State = r.State, Fame = r.Fame,
+                Online = session is not null,
+                // 접속 중이 아니어도 **저장된 집**은 남아 있다 → 화분에 캣닢을 꽂으러 갈 수 있다.
+                RoomId = room?.Id ?? rooms.FindHomeByNick(r.Nick)?.Id ?? 0,
+                RoomName = room?.Name ?? rooms.FindHomeByNick(r.Nick)?.Name ?? "",
+            });
+        }
+        return new S_FriendList { Friends = list };
     }
 
     /// <summary>걸을 수 있는 칸 수 — 집이 얼마나 넓은지 비교해 보여주기 위한 값.</summary>

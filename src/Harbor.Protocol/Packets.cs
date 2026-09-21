@@ -119,6 +119,24 @@ public sealed class HouseStyle
 
 [MessagePackObject] public sealed class TilePos { [Key(0)] public short X; [Key(1)] public short Y; }
 
+/// <summary>
+/// 친구 한 명. **접속 여부와 지금 있는 방까지** 함께 보낸다 — "누가 있나"를 아는 것이
+/// 이 장르의 핵심이라, 목록을 열 때마다 따로 물어보게 만들면 안 된다.
+/// </summary>
+[MessagePackObject]
+public sealed class FriendDto
+{
+    [Key(0)] public string Nick = "";
+    /// <summary>`accepted` 친구 · `sent` 내가 신청함 · `pending` 상대가 신청해 옴</summary>
+    [Key(1)] public string State = "";
+    [Key(2)] public bool Online;
+    /// <summary>지금 있는 방. 0 이면 접속 중이 아니거나 방에 없다. 놀러 가기는 이 값으로 `C_EnterRoom`.</summary>
+    [Key(3)] public long RoomId;
+    [Key(4)] public string RoomName = "";
+    /// <summary>인기도 — 목록에서 바로 보이면 화분을 꽂아 주고 싶어진다.</summary>
+    [Key(5)] public int Fame;
+}
+
 // ----- C → S -----
 [MessagePackObject] public sealed class C_Login { [Key(0)] public string Login = ""; [Key(1)] public string Token = ""; }
 [MessagePackObject] public sealed class C_EnterRoom { [Key(0)] public long RoomId; }
@@ -146,6 +164,11 @@ public sealed class HouseStyle
 [MessagePackObject] public sealed class C_OfferItem { [Key(0)] public long ItemId; }
 /// <summary>방 바닥·벽 스타일 바꾸기(방 주인만). 빈 문자열이면 그 항목은 그대로 둔다.</summary>
 [MessagePackObject] public sealed class C_SetRoomStyle { [Key(0)] public string Wall = ""; [Key(1)] public string Floor = ""; }
+
+[MessagePackObject] public sealed class C_FriendAdd { [Key(0)] public string Nick = ""; }
+/// <summary>받은 신청에 답하기. Accept=false 면 거절(신청이 사라진다).</summary>
+[MessagePackObject] public sealed class C_FriendAnswer { [Key(0)] public string Nick = ""; [Key(1)] public bool Accept; }
+[MessagePackObject] public sealed class C_FriendRemove { [Key(0)] public string Nick = ""; }
 
 // ----- S → C -----
 /// <summary>Nick 은 서버가 확정한 닉 — 입장권으로 들어오면 클라가 입력한 값과 다를 수 있으므로 이걸 따른다.</summary>
@@ -177,5 +200,7 @@ public sealed class HouseStyle
 [MessagePackObject] public sealed class S_Catalog { [Key(0)] public List<CatalogEntry> Items = new(); }
 [MessagePackObject] public sealed class S_WalletUpdate { [Key(0)] public long Rupee; [Key(1)] public long Cash; }
 [MessagePackObject] public sealed class S_Error { [Key(0)] public ushort Code; [Key(1)] public string Message = ""; }
+/// <summary>친구 목록 전체. 바뀔 때마다 통째로 다시 보낸다 — 목록이 짧아서 부분 갱신을 만들 값어치가 없다.</summary>
+[MessagePackObject] public sealed class S_FriendList { [Key(0)] public List<FriendDto> Friends = new(); }
 
 [MessagePackObject] public sealed class Empty { }

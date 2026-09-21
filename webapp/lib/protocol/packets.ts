@@ -115,6 +115,33 @@ export const readChat = (v: unknown) => {
 };
 export const readWallet = (v: unknown) => { const a = arr(v); return { rupee: num(a[0]), cash: num(a[1]) }; };
 
+// ---------- 친구 ----------
+export interface Friend {
+  nick: string;
+  /** `accepted` 친구 · `sent` 내가 신청함 · `pending` 상대가 신청해 옴 */
+  state: string;
+  online: boolean;
+  /** 지금 있는 방(없으면 저장된 집). 0 이면 갈 곳이 없다. */
+  roomId: number;
+  roomName: string;
+  fame: number;
+}
+
+export const readFriend = (v: unknown): Friend => {
+  const a = arr(v);
+  return {
+    nick: str(a[0]), state: str(a[1]), online: bool(a[2]),
+    roomId: num(a[3]), roomName: str(a[4]), fame: num(a[5]),
+  };
+};
+
+export const readFriendList = (v: unknown): Friend[] => arr(arr(v)[0]).map(readFriend);
+
+export const friendListPacket = () => ({ op: Op.C_FriendList, body: [] });
+export const friendAddPacket = (nick: string) => ({ op: Op.C_FriendAdd, body: [nick] });
+export const friendAnswerPacket = (nick: string, accept: boolean) => ({ op: Op.C_FriendAnswer, body: [nick, accept] });
+export const friendRemovePacket = (nick: string) => ({ op: Op.C_FriendRemove, body: [nick] });
+
 // ---------- 방 목록 ----------
 export interface RoomInfo {
   id: number;

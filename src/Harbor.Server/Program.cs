@@ -45,6 +45,7 @@ builder.Services.AddSingleton<DefinitionStore>(sp =>
 });
 builder.Services.AddSingleton<SaveStore>();
 builder.Services.AddSingleton<Accounts>();
+builder.Services.AddSingleton<Friends>();
 builder.Services.AddSingleton<OnlineUsers>();
 builder.Services.AddSingleton<TicketStore>();
 builder.Services.AddSingleton<RoomManager>();
@@ -67,7 +68,8 @@ HandlerRegistration.Register(app.Services.GetRequiredService<Dispatcher>(), room
     app.Services.GetRequiredService<IOptions<EconomyOptions>>().Value, save,
     app.Services.GetRequiredService<OnlineUsers>(),
     app.Services.GetRequiredService<Accounts>(),
-    app.Services.GetRequiredService<TicketStore>(), opt);
+    app.Services.GetRequiredService<TicketStore>(), opt,
+    app.Services.GetRequiredService<Friends>());
 
 // 방 계열/단계는 JSON 에만 있어 단위 테스트가 못 본다 → 기동할 때 한 번 훑어 어긋난 곳을 알린다.
 // (넓히기 사슬이 끊기면 그 방은 조용히 '최종 단계'가 되어 버린다.)

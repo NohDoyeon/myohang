@@ -104,6 +104,13 @@ public sealed class SaveStore
     public int UserCount => _users.Count;
     public int RoomCount => _rooms.Count;
 
+    /// <summary>
+    /// **메모리를 거치지 않는 데이터**(친구 등)가 DB 를 직접 볼 때 쓰는 통로.
+    /// 접속 문자열은 여기 한 곳에만 둔다 — 여러 곳에 퍼지면 어느 값이 맞는지 알 수 없게 된다.
+    /// 지갑·가방처럼 매 틱 바뀌는 것은 이 길로 다니면 안 된다(그건 더티 집합 + 3초 플러시).
+    /// </summary>
+    public NpgsqlConnection OpenConnection() => Db.Open(_conn);
+
     /// <summary>로그에 찍어도 되는 접속 대상 설명 — 비밀번호는 빼고 호스트/DB 만.</summary>
     public string Describe()
     {

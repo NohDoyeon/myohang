@@ -14,6 +14,7 @@ public enum Opcode : ushort
     C_BuyCatalog = 0x0060, C_Catalog = 0x0061, C_Inventory = 0x0062, C_SellItem = 0x0063, C_LotteryDraw = 0x0070,
     C_MinigameJoin = 0x0080, C_MinigameInput = 0x0081,
     C_Propose = 0x0090, C_ProposeAnswer = 0x0091,
+    C_FriendList = 0x00A0, C_FriendAdd = 0x00A1, C_FriendAnswer = 0x00A2, C_FriendRemove = 0x00A3,
 
     // Server → Client
     S_LoginResult = 0x1001, S_Pong = 0x1002, S_Notice = 0x1003,
@@ -24,5 +25,6 @@ public enum Opcode : ushort
     S_PostitList = 0x1050,
     S_InventoryUpdate = 0x1060, S_WalletUpdate = 0x1061, S_Catalog = 0x1062, S_Inventory = 0x1063, S_LotteryResult = 0x1070,
     S_MinigameEvent = 0x1080, S_RelationUpdate = 0x1090, S_Fame = 0x1091,
+    S_FriendList = 0x10A0,
     S_Error = 0x1FFF,
 }

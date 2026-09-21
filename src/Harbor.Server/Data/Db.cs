@@ -98,6 +98,19 @@ public static class Db
             CREATE INDEX IF NOT EXISTS idx_gift_log_owner ON gift_log(owner_key, id DESC);
             CREATE INDEX IF NOT EXISTS idx_gift_log_giver ON gift_log(giver_key, id DESC);
 
+            -- 친구: **한 관계를 두 줄로** 저장한다(A→B, B→A).
+            -- 한 줄로 두면 "내 친구 목록"을 뽑을 때마다 양방향 OR 조건이 붙어 쿼리가 지저분해진다.
+            -- 두 줄이면 `WHERE nick_key = 나` 하나로 끝나고, 상태도 각자 다르게 가질 수 있다
+            -- (신청한 쪽은 `sent`, 받은 쪽은 `pending`).
+            CREATE TABLE IF NOT EXISTS friend (
+                nick_key   TEXT NOT NULL REFERENCES account(nick_key) ON DELETE CASCADE,
+                friend_key TEXT NOT NULL REFERENCES account(nick_key) ON DELETE CASCADE,
+                state      TEXT NOT NULL DEFAULT 'pending',   -- sent | pending | accepted
+                at         TIMESTAMPTZ NOT NULL,
+                PRIMARY KEY (nick_key, friend_key)
+            );
+            CREATE INDEX IF NOT EXISTS idx_friend_owner ON friend(nick_key, state);
+
             -- 가방: 계정이 가진 가구 종류와 수량.
             CREATE TABLE IF NOT EXISTS inventory (
                 nick_key    TEXT NOT NULL REFERENCES account(nick_key) ON DELETE CASCADE,
@@ -182,7 +195,7 @@ public static class Db
     /// </summary>
     private static void LockDownForDataApi(NpgsqlConnection conn)
     {
-        foreach (var t in new[] { "schema_info", "account", "player", "inventory", "room", "room_item", "currency_log", "login_log", "notice", "gift_log" })
+        foreach (var t in new[] { "schema_info", "account", "player", "inventory", "room", "room_item", "currency_log", "login_log", "notice", "gift_log", "friend" })
             conn.Execute($"ALTER TABLE {t} ENABLE ROW LEVEL SECURITY;");
     }
 }

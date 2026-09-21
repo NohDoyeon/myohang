@@ -211,7 +211,14 @@ export class RoomRenderer {
   setPath(id: number, path: TilePos[]): void {
     const a = this.avatars.get(id);
     if (!a) return;
-    a.path = [...path];
+    // **이미 서 있는 칸은 버린다.** 서버는 자기 틱에 맞춰 움직이므로, 클라가 먼저 도착해 있으면
+    // 경로의 첫 칸이 지금 칸과 같아진다. 그대로 두면 dx=dy=0 이라 방향이 기본값(정면)으로 떨어져
+    // **한 칸마다 정면을 한 번씩 보는** 현상이 생긴다("도리도리").
+    const here = { x: Math.round(a.fx), y: Math.round(a.fy) };
+    let i = 0;
+    while (i < path.length && path[i].x === here.x && path[i].y === here.y) i++;
+
+    a.path = path.slice(i);
     a.legMs = 0;
     a.legFromX = a.fx; a.legFromY = a.fy;     // 걷던 중이면 그 자리에서 이어 간다
   }
@@ -249,7 +256,10 @@ export class RoomRenderer {
       const next = a.path[0];
       const t = Math.min(1, a.legMs / this.moveMs);
 
-      a.dir = directionBetween(a.legFromX, a.legFromY, next.x, next.y);
+      // 제자리(dx=dy=0)면 방향을 **바꾸지 않는다.** directionBetween 은 그럴 때 4(정면)로 떨어지는데,
+      // 그걸 그대로 쓰면 멈칫할 때마다 고개가 앞으로 돌아간다.
+      const moved = Math.round(a.legFromX) !== next.x || Math.round(a.legFromY) !== next.y;
+      if (moved) a.dir = directionBetween(a.legFromX, a.legFromY, next.x, next.y);
       a.fx = a.legFromX + (next.x - a.legFromX) * t;
       a.fy = a.legFromY + (next.y - a.legFromY) * t;
 

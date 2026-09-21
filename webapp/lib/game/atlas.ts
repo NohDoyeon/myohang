@@ -17,15 +17,32 @@ export const ART_DIRS = 5;
 /**
  * 서버 방향(0=북, 시계방향 0~7) → 시트 방향 + 좌우반전 여부.
  *
- * 시트는 **0 = 뒷모습(카메라 반대), 4 = 앞모습(카메라 쪽)** 으로 그려져 있다.
- * 서버도 0 = 북(화면 안쪽) · 4 = 남(화면 앞쪽)이므로 **그대로 맞는다 → 오프셋 0**.
+ * **여기서 두 번 틀렸다. 이유를 적어 둔다.**
  *
- * (Godot 클라는 `DirOffset = 1` 로 되어 있는데, 그러면 전부 45°씩 틀어진다.
- *  "뒤로 갈 때 왼쪽을 본다"는 증상이 그 모양이었고 끝내 검증되지 않았다. 여기서는 0으로 둔다.)
+ * 1) 시트는 `0 = 뒤통수 … 4 = 정면` 이고, 사이 세 장은 **왼쪽을 보며** 돈다
+ *    (얼굴이 왼쪽에서부터 드러난다 — atlas.png 를 확대해 확인).
+ *
+ * 2) 틀렸던 것: "서버 0 = 북이니 art 0 = 뒷모습"이라고 뒀다. **카메라가 45° 돌아가 있다.**
+ *    투영이 `sx = (x-y)·32, sy = (x+y)·16` 이므로
+ *      dir 7 (-1,-1) → sx 0, sy -32  = 화면에서 곧게 위   → **카메라에서 가장 멀다 = 뒷모습**
+ *      dir 3 (+1,+1) → sx 0, sy +32  = 화면에서 곧게 아래 → **카메라와 가장 가깝다 = 정면**
+ *    즉 art 0 ↔ dir 7, art 4 ↔ dir 3. 시트 번호는 **`7 - dir`** 로 읽어야 한다.
+ *
+ * 3) 좌우 반전의 기준도 월드 축이 아니라 **화면 좌우**다. 화면을 좌우로 뒤집으면
+ *    dir d 는 `6 - d` 가 된다(위·아래는 제자리). 그래서 오른쪽 절반만 반전해 만든다.
+ *
+ * 결과:
+ * | 화면 | dir | art | 반전 |
+ * |---|---|---|---|
+ * | 위   | 7 | 0 | — |
+ * | 아래 | 3 | 4 | — |
+ * | 왼쪽 | 5 | 2 | — |
+ * | 오른쪽 | 1 | 2 | 반전 |
  */
 export function artDirection(dir: number): { artDir: number; flip: boolean } {
   const d = ((dir % 8) + 8) % 8;
-  return d <= 4 ? { artDir: d, flip: false } : { artDir: 8 - d, flip: true };
+  const s = (7 - d + 8) % 8;                 // 시트 번호 기준으로 옮긴 방향
+  return s <= 4 ? { artDir: s, flip: false } : { artDir: 8 - s, flip: true };
 }
 
 export class AvatarAtlas {
@@ -52,6 +69,11 @@ export class AvatarAtlas {
 
   get size() {
     return this.frames.size;
+  }
+
+  /** 시트 번호로 **그대로** 꺼낸다(대체 없음). 원본 확인용 — 게임에서는 `pick` 을 쓴다. */
+  raw(artDir: number, action: string, frame = 0): Texture | null {
+    return this.frames.get(`avatar/hd/001_${artDir}_${action}_${frame}`) ?? null;
   }
 
   /**

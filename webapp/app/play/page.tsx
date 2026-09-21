@@ -8,14 +8,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { GameClient, gameUrl } from "@/lib/protocol/client";
 import { Op, opName } from "@/lib/protocol/opcode";
 import {
-  enterRoomPacket, loginPacket, movePacket, readError, readLoginResult, readNotice,
-  readRoomSnapshot, readUserAction, readUserEnter, readUserLeave, readUserPath, readWallet,
-  type RoomSnapshot,
+  chatPacket, enterRoomPacket, loginPacket, movePacket, readChat, readError, readLoginResult,
+  readNotice, readRoomSnapshot, readUserAction, readUserEnter, readUserLeave, readUserPath,
+  readWallet, type RoomSnapshot,
 } from "@/lib/protocol/packets";
 import { RoomRenderer } from "@/lib/game/room-renderer";
 import { attachWalkControl } from "@/lib/game/keyboard";
 
 interface LogLine { at: string; text: string; kind: "in" | "out" | "info" | "bad" }
+interface ChatLine { nick: string; text: string; mine: boolean }
+
+const CHAT_MAX = 120;      // 서버가 120자에서 자른다 (RoomInstance.cs)
 
 export default function PlayPage() {
   const [login, setLogin] = useState("");
@@ -24,6 +27,8 @@ export default function PlayPage() {
   const [snapshot, setSnapshot] = useState<RoomSnapshot | null>(null);
   const [rupee, setRupee] = useState<number | null>(null);
   const [log, setLog] = useState<LogLine[]>([]);
+  const [chat, setChat] = useState<ChatLine[]>([]);
+  const [draft, setDraft] = useState("");
 
   const client = useRef<GameClient | null>(null);
   const renderer = useRef<RoomRenderer | null>(null);
@@ -86,6 +91,13 @@ export default function PlayPage() {
         renderer.current?.setAction(a.userId, a.action, a.dir);
         return;
       }
+      case Op.S_ChatBubble: {
+        const c = readChat(body);
+        const who = snapRef.current?.users.find((u) => u.id === c.userId);
+        renderer.current?.say(c.userId, c.text);
+        setChat((prev) => [...prev.slice(-80), { nick: who?.nick ?? "?", text: c.text, mine: c.userId === myId.current }]);
+        return;
+      }
       case Op.S_WalletUpdate: setRupee(readWallet(body).rupee); return;
       case Op.S_Notice: add(`공지: ${readNotice(body).text}`, "in"); return;
       case Op.S_Error: { const e = readError(body); add(`오류 ${e.code}: ${e.message}`, "bad"); return; }
@@ -102,9 +114,9 @@ export default function PlayPage() {
         client.current.post(movePacket(x, y));
         add(`→ C_Move(${x}, ${y})`, "out");
       },
-      onAtlas: (frames, error) => {
-        if (error) add(`도트 없음(도형으로 그립니다): ${error}`, "bad");
-        else add(`도트 ${frames}프레임 로드`);
+      onAtlas: (frames, floorTiles, wallTiles, error) => {
+        add(`도트 ${frames}프레임 · 바닥 ${floorTiles}종 · 벽 ${wallTiles}종 로드`);
+        if (error) add(`일부 그림 없음(도형으로 그립니다): ${error}`, "bad");
       },
     });
     (async () => {
@@ -144,6 +156,15 @@ export default function PlayPage() {
     },
   }), []);
 
+  const send = useCallback(() => {
+    const text = draft.trim();
+    if (text.length === 0 || !client.current?.connected) return;
+    client.current.post(chatPacket(text));
+    setDraft("");
+    // 여기서 화면에 바로 넣지 않는다. 서버가 S_ChatBubble 로 되돌려 주므로,
+    // 그걸 기다려야 **남에게 보이는 것과 같은 내용**(길이 제한 적용 후)이 보인다.
+  }, [draft]);
+
   useEffect(() => () => client.current?.close(), []);
 
   return (
@@ -175,11 +196,41 @@ export default function PlayPage() {
       <div ref={canvasHost} style={S.canvas} />
 
       {snapshot && (
-        <p style={S.caption}>
-          <strong>{snapshot.room.name}</strong> · {snapshot.room.templateId} · {snapshot.room.width}×{snapshot.room.height}
-          {" · "}가구 {snapshot.items.length}
-          <span style={S.keys}>클릭 또는 화살표·WASD 로 이동</span>
-        </p>
+        <>
+          <form
+            style={S.chatBar}
+            onSubmit={(e) => { e.preventDefault(); send(); }}
+          >
+            <input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value.slice(0, CHAT_MAX))}
+              style={S.chatInput}
+              placeholder="여기에 입력하고 Enter"
+              maxLength={CHAT_MAX}
+              autoComplete="off"
+            />
+            <button type="submit" style={S.chatSend} disabled={draft.trim().length === 0}>보내기</button>
+          </form>
+
+          {chat.length > 0 && (
+            <div style={S.chatLog}>
+              {/* React 의 기본 텍스트 렌더링이라 HTML 이 섞여 와도 태그로 해석되지 않는다.
+                  dangerouslySetInnerHTML 을 쓰면 그 순간 뚫린다 — 쓰지 말 것. */}
+              {chat.map((c, i) => (
+                <div key={i} style={S.chatLine}>
+                  <b style={{ ...S.chatNick, color: c.mine ? "#c98c4b" : "#9ab0c6" }}>{c.nick}</b>
+                  {c.text}
+                </div>
+              ))}
+            </div>
+          )}
+
+          <p style={S.caption}>
+            <strong>{snapshot.room.name}</strong> · {snapshot.room.templateId} · {snapshot.room.width}×{snapshot.room.height}
+            {" · "}가구 {snapshot.items.length}
+            <span style={S.keys}>클릭 또는 화살표·WASD 로 이동</span>
+          </p>
+        </>
       )}
 
       <details style={S.card}>
@@ -215,6 +266,12 @@ const S: Record<string, React.CSSProperties> = {
   canvas: { width: "100%", height: "min(62vh, 560px)", borderRadius: 10, overflow: "hidden", background: "#171614", border: "1px solid #2f2d2a" },
   caption: { fontSize: 13, opacity: 0.75, margin: "10px 0 12px", display: "flex", gap: 8, flexWrap: "wrap" },
   keys: { marginLeft: "auto", opacity: 0.7 },
+  chatBar: { display: "flex", gap: 8, marginTop: 10 },
+  chatInput: { flex: 1, padding: "10px 12px", borderRadius: 8, border: "1px solid #3a3733", background: "#1b1a18", color: "inherit", fontSize: 14 },
+  chatSend: { padding: "10px 16px", borderRadius: 8, border: 0, background: "#c98c4b", color: "#1b1a18", fontWeight: 600, fontSize: 14, cursor: "pointer" },
+  chatLog: { marginTop: 10, maxHeight: 132, overflowY: "auto", fontSize: 13.5, lineHeight: 1.75, background: "#1b1a18", border: "1px solid #2f2d2a", borderRadius: 8, padding: "8px 12px" },
+  chatLine: { wordBreak: "break-word" },
+  chatNick: { marginRight: 7 },
   summary: { cursor: "pointer", fontSize: 13, opacity: 0.8 },
   log: { maxHeight: 220, overflowY: "auto", fontSize: 12.5, fontFamily: "ui-monospace, monospace", lineHeight: 1.7, marginTop: 10 },
   time: { opacity: 0.4, marginRight: 8 },

@@ -7,14 +7,16 @@
 //  2. 이동은 **서버가 준 경로를 클라가 보간**한다. 서버는 칸 단위로만 말하고(S_UserPath),
 //     칸당 시간은 `room.moveMs` 다. 이 값을 안 쓰고 임의 속도로 움직이면 서버 위치와 조금씩 어긋난다.
 
-import { Application, Container, Graphics, Sprite } from "pixi.js";
+import { Application, Container, Graphics, Sprite, Text, TilingSprite } from "pixi.js";
 import type { ItemDto, RoomSnapshot, TilePos, UserDto } from "@/lib/protocol/packets";
 import { Heightmap, TILE_H, TILE_W, Walls, depthKey, directionBetween, toScreen, toWorld } from "./iso";
 import { AvatarAtlas } from "./atlas";
+import { FloorTiles, WallTiles } from "./tiles";
 
 const COLOR = {
   floorA: 0x8c7a63, floorB: 0x7d6c57, floorEdge: 0x5f5344,
-  wallNorth: 0xb9a892, wallWest: 0x9c8d79,
+  // 그림을 쓸 때는 **tint** 로 곱해지므로 흰색에 가까워야 원색이 산다.
+  wallNorth: 0xffffff, wallWest: 0xd6cec4,
   door: 0xc98c4b,
   item: 0x6f8f6a, itemWall: 0x7a7f9b,
   body: 0xf0e2cf, bodyEdge: 0x3a2f28, face: 0x3a2f28,
@@ -23,8 +25,8 @@ const COLOR = {
 
 export interface RoomRendererEvents {
   onTileClick?: (x: number, y: number) => void;
-  /** 아틀라스 로딩 결과. frames=0 이면 도형으로 그린다. */
-  onAtlas?: (frames: number, error?: string) => void;
+  /** 그림 로딩 결과. 0 이면 그 부분은 도형으로 그린다. */
+  onAtlas?: (frames: number, floorTiles: number, wallTiles: number, error?: string) => void;
 }
 
 /** 화면에 보이는 사람 하나. 서버 좌표(정수 칸)와 별개로 **떠 있는 위치**(fx,fy)를 들고 움직인다. */
@@ -35,6 +37,9 @@ interface Avatar {
   sprite: Sprite | null;
   /** 걷기 프레임 전환용 누적 시간. */
   animMs: number;
+  /** 머리 위 말풍선. 새 말을 하면 이전 것을 지운다. */
+  bubble: Container | null;
+  bubbleMs: number;
   fx: number; fy: number;          // 지금 화면상 위치 (칸 단위, 소수)
   path: TilePos[];                 // 남은 경로
   legMs: number;                   // 지금 칸으로 건너간 지 얼마나 됐나
@@ -56,6 +61,8 @@ export class RoomRenderer {
   private moveMs = 240;
   private avatars = new Map<number, Avatar>();
   private atlas: AvatarAtlas | null = null;
+  private tiles: FloorTiles | null = null;
+  private wallTiles: WallTiles | null = null;
 
   constructor(private readonly events: RoomRendererEvents = {}) {}
 
@@ -65,12 +72,21 @@ export class RoomRenderer {
     el.appendChild(app.canvas);
 
     // 도트는 **있으면 쓰고 없으면 도형으로 간다.** 여기서 실패해도 방은 그려져야 한다.
-    try {
-      this.atlas = await AvatarAtlas.load();
-      this.events.onAtlas?.(this.atlas.size);
-    } catch (e) {
-      this.events.onAtlas?.(0, e instanceof Error ? e.message : String(e));
-    }
+    // 캐릭터와 바닥은 따로 잡는다 — 한쪽이 없다고 다른 쪽까지 도형이 될 이유가 없다.
+    const [atlas, tiles, walls] = await Promise.allSettled([
+      AvatarAtlas.load(), FloorTiles.load(), WallTiles.load(),
+    ]);
+    if (atlas.status === "fulfilled") this.atlas = atlas.value;
+    if (tiles.status === "fulfilled") this.tiles = tiles.value;
+    if (walls.status === "fulfilled") this.wallTiles = walls.value;
+
+    const failed = [atlas, tiles, walls].find((r) => r.status === "rejected");
+    this.events.onAtlas?.(
+      this.atlas?.size ?? 0,
+      this.tiles?.size ?? 0,
+      this.wallTiles?.size ?? 0,
+      failed?.status === "rejected" ? String(failed.reason) : undefined,
+    );
 
     this.objects.sortableChildren = true;
     this.world.addChild(this.floor, this.walls, this.objects, this.hover);
@@ -100,7 +116,7 @@ export class RoomRenderer {
     this.moveMs = Math.max(1, snap.room.moveMs);
 
     this.drawFloor(snap);
-    this.drawWalls(Math.max(1, snap.room.wallHeight));
+    this.drawWalls(Math.max(1, snap.room.wallHeight), snap.room.wallStyle);
     this.drawItems(snap.items);
 
     // 사람은 지우고 다시 만들지 않는다 — 그러면 걷던 사람이 매번 제자리로 튄다.
@@ -112,8 +128,29 @@ export class RoomRenderer {
   }
 
   private drawFloor(snap: RoomSnapshot) {
-    const g = new Graphics();
     const m = this.map!;
+    this.floor.removeChildren();
+
+    // 그림이 있으면 타일 한 장씩 깐다. 텍스처가 정확히 64×32 라 앵커 가운데면 좌표가 그대로 맞는다.
+    const texture = this.tiles?.get(snap.room.floorStyle);
+    if (texture) {
+      for (let y = 0; y < m.h; y++) {
+        for (let x = 0; x < m.w; x++) {
+          if (!m.walkable(x, y)) continue;
+          const { sx, sy } = toScreen(x, y, m.heightAt(x, y));
+          const s = new Sprite(texture);
+          s.anchor.set(0.5);
+          s.position.set(sx, sy);
+          // 문 칸만 살짝 물들여 표시한다. 별도 그림을 만들 필요가 없다.
+          if (x === snap.room.doorX && y === snap.room.doorY) s.tint = COLOR.door;
+          this.floor.addChild(s);
+        }
+      }
+      return;
+    }
+
+    // 그림이 없을 때 — 도형으로라도 그린다.
+    const g = new Graphics();
     for (let y = 0; y < m.h; y++) {
       for (let x = 0; x < m.w; x++) {
         if (!m.walkable(x, y)) continue;
@@ -124,15 +161,17 @@ export class RoomRenderer {
           .stroke({ color: COLOR.floorEdge, width: 1, alpha: 0.5 });
       }
     }
-    this.floor.removeChildren();
     this.floor.addChild(g);
   }
 
-  private drawWalls(wallHeight: number) {
+  private drawWalls(wallHeight: number, wallStyle: string) {
     const m = this.map!;
     const w = new Walls(m);
     const wallPx = wallHeight * TILE_H;
-    const g = new Graphics();
+    const texture = this.wallTiles?.get(wallStyle);
+    const g = texture ? null : new Graphics();
+
+    this.walls.removeChildren();
 
     // 뒤(x+y 가 작은 쪽)부터 그려야 벽끼리 겹칠 때 앞엣것이 위로 온다.
     for (let sum = 0; sum <= m.w + m.h; sum++) {
@@ -140,18 +179,22 @@ export class RoomRenderer {
         const x = sum - y;
         if (x < 0 || x >= m.w || !m.walkable(x, y)) continue;
         const { sx, sy } = toScreen(x, y, m.heightAt(x, y));
+
+        // 북쪽 벽 — 타일의 우상단 모서리. 왼쪽보다 오른쪽이 16px 내려간다.
         if (w.north(x, y)) {
-          g.poly([sx, sy - TILE_H / 2, sx + TILE_W / 2, sy, sx + TILE_W / 2, sy - wallPx, sx, sy - TILE_H / 2 - wallPx])
+          if (texture) this.walls.addChild(wallPanel(texture, sx, sy - TILE_H / 2 - wallPx, wallPx, +1, COLOR.wallNorth));
+          else g!.poly([sx, sy - TILE_H / 2, sx + TILE_W / 2, sy, sx + TILE_W / 2, sy - wallPx, sx, sy - TILE_H / 2 - wallPx])
             .fill({ color: COLOR.wallNorth });
         }
+        // 서쪽 벽 — 좌상단 모서리. 오른쪽이 16px **올라간다**.
         if (w.west(x, y)) {
-          g.poly([sx - TILE_W / 2, sy, sx, sy - TILE_H / 2, sx, sy - TILE_H / 2 - wallPx, sx - TILE_W / 2, sy - wallPx])
+          if (texture) this.walls.addChild(wallPanel(texture, sx - TILE_W / 2, sy - wallPx, wallPx, -1, COLOR.wallWest));
+          else g!.poly([sx - TILE_W / 2, sy, sx, sy - TILE_H / 2, sx, sy - TILE_H / 2 - wallPx, sx - TILE_W / 2, sy - wallPx])
             .fill({ color: COLOR.wallWest });
         }
       }
     }
-    this.walls.removeChildren();
-    this.walls.addChild(g);
+    if (g) this.walls.addChild(g);
   }
 
   private drawItems(items: ItemDto[]) {
@@ -192,7 +235,8 @@ export class RoomRenderer {
     this.objects.addChild(node);
 
     const a: Avatar = {
-      dto: u, node, sprite, animMs: 0, fx: u.x, fy: u.y, path: [], legMs: 0,
+      dto: u, node, sprite, animMs: 0, bubble: null, bubbleMs: 0,
+      fx: u.x, fy: u.y, path: [], legMs: 0,
       legFromX: u.x, legFromY: u.y, dir: u.dir, action: u.action,
     };
     this.avatars.set(u.id, a);
@@ -223,6 +267,22 @@ export class RoomRenderer {
     a.legFromX = a.fx; a.legFromY = a.fy;     // 걷던 중이면 그 자리에서 이어 간다
   }
 
+  /**
+   * 머리 위에 말풍선을 띄운다. 잠시 뒤 스스로 사라진다.
+   *
+   * 글자는 **Pixi 의 Text 로 캔버스에 그린다** — DOM 이 아니므로 HTML 이 섞여 들어와도
+   * 태그로 해석될 여지가 없다. 채팅 로그(React)도 기본 텍스트 렌더링이라 자동 이스케이프된다.
+   */
+  say(id: number, text: string): void {
+    const a = this.avatars.get(id);
+    if (!a || text.length === 0) return;
+
+    a.bubble?.destroy({ children: true });
+    a.bubble = makeBubble(text);
+    a.bubbleMs = 0;
+    a.node.addChild(a.bubble);
+  }
+
   /** 그 사람이 지금 서 있는(또는 향하는) 칸. 키보드 이동의 기준점이다. */
   tileOf(id: number): { x: number; y: number } | null {
     const a = this.avatars.get(id);
@@ -250,6 +310,15 @@ export class RoomRenderer {
   /** 매 프레임 — 경로를 따라 보간한다. */
   private step(deltaMs: number): void {
     for (const a of this.avatars.values()) {
+      // 말풍선은 걷든 서 있든 사라져야 한다 — 이동 처리보다 먼저 본다.
+      if (a.bubble) {
+        a.bubbleMs += deltaMs;
+        if (a.bubbleMs > BUBBLE_MS) { a.bubble.destroy({ children: true }); a.bubble = null; }
+        else if (a.bubbleMs > BUBBLE_MS - 400) a.bubble.alpha = (BUBBLE_MS - a.bubbleMs) / 400;
+        // 캐릭터가 뒤집혀도 글자는 뒤집히면 안 된다.
+        if (a.bubble && a.sprite) a.bubble.scale.x = 1;
+      }
+
       if (a.path.length === 0) continue;
 
       a.legMs += deltaMs;
@@ -324,6 +393,52 @@ export class RoomRenderer {
     this.app = null;
     this.avatars.clear();
   }
+}
+
+/**
+ * 벽 한 칸. 타일 무늬(32×48)를 세로로 반복해 벽 높이를 채우고, **기울여** 타일 모서리에 맞춘다.
+ *
+ * 기울기는 `atan(0.5)` 다 — 2:1 아이소메트릭에서 가로 32를 가면 세로가 정확히 16 움직이기 때문이다.
+ * 이 값을 눈대중으로 넣으면 벽과 바닥 사이에 틈이 생기거나 겹친다.
+ *
+ * @param lean +1 = 오른쪽으로 갈수록 내려감(북쪽 벽), -1 = 올라감(서쪽 벽)
+ */
+function wallPanel(texture: Texture, x: number, y: number, height: number, lean: 1 | -1, tint: number): TilingSprite {
+  const s = new TilingSprite({ texture, width: TILE_W / 2, height });
+  s.position.set(x, y);
+  s.skew.y = lean * Math.atan(TILE_H / TILE_W);
+  s.tint = tint;                 // 두 면의 명암을 달리해야 입체로 읽힌다
+  return s;
+}
+
+const BUBBLE_MS = 4500;
+
+/** 머리 위 말풍선. 꼬리는 생략하고 둥근 상자만 — 작은 화면에서 꼬리는 잘 안 보인다. */
+function makeBubble(text: string): Container {
+  const c = new Container();
+  const label = new Text({
+    text: text.length > 60 ? `${text.slice(0, 60)}…` : text,
+    style: {
+      fontFamily: "system-ui, -apple-system, 'Malgun Gothic', sans-serif",
+      fontSize: 13,
+      fill: 0x2a2520,
+      wordWrap: true,
+      wordWrapWidth: 180,
+      align: "center",
+    },
+  });
+  label.anchor.set(0.5);
+
+  const padX = 9, padY = 6;
+  const w = label.width + padX * 2, h = label.height + padY * 2;
+  const bg = new Graphics()
+    .roundRect(-w / 2, -h / 2, w, h, 7)
+    .fill({ color: 0xfdf3e8 })
+    .stroke({ color: 0x503433, width: 1.5, alpha: 0.8 });
+
+  c.addChild(bg, label);
+  c.position.set(0, -66);          // 머리 위. 스프라이트가 54px 이라 여유를 둔다
+  return c;
 }
 
 /** 발밑 그림자. 이게 없으면 캐릭터가 바닥에서 떠 보인다 — 도형이든 스프라이트든 항상 깐다. */

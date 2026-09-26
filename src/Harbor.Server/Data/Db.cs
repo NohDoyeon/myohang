@@ -75,6 +75,22 @@ public static class Db
             );
             CREATE INDEX IF NOT EXISTS idx_notice_published ON notice(published_at DESC);
 
+            -- 게임 서버가 **지금 어디에 떠 있는지**. 게임 서버가 소유하고, 웹은 읽기만 한다.
+            --
+            -- 이 한 줄이 있어야 터널 주소를 사람이 나르지 않는다. 무료 cloudflared 주소는 켤 때마다
+            -- 바뀌는데, 웹이 그걸 빌드 타임 환경변수(NEXT_PUBLIC_GAME_WS)로만 알면 주소가 바뀔 때마다
+            -- Vercel 값을 고치고 **재배포**해야 한다. 서버가 켜지면서 여기에 적어 두면 웹은 매 요청마다
+            -- 읽어 가므로 재배포가 필요 없다.
+            --
+            -- ws_url 은 공개 주소지 비밀이 아니다(브라우저가 붙을 곳이다). 쓰는 쪽은 소유자(게임 서버)뿐이고
+            -- 바깥은 RLS 로 막힌다 — 남이 이 줄을 바꾸면 플레이어를 엉뚱한 서버로 보낼 수 있으니 중요하다.
+            CREATE TABLE IF NOT EXISTS server_endpoint (
+                name       TEXT PRIMARY KEY,               -- 'game'
+                ws_url     TEXT NOT NULL DEFAULT '',       -- wss://…/ws
+                online     BOOLEAN NOT NULL DEFAULT false, -- 정상 종료면 false 로 내린다
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT now()   -- 심장박동. 오래되면 꺼진 것으로 본다
+            );
+
             -- 플레이어 = 지갑·외모·출석·인기도. **게임 서버가 소유한다.**
             -- fame = 내 화분에 남들이 꽂아 준 캣닢의 누적 개수. 화분을 팔아도 줄지 않는다(명예는 남는다).
             CREATE TABLE IF NOT EXISTS player (
@@ -195,7 +211,7 @@ public static class Db
     /// </summary>
     private static void LockDownForDataApi(NpgsqlConnection conn)
     {
-        foreach (var t in new[] { "schema_info", "account", "player", "inventory", "room", "room_item", "currency_log", "login_log", "notice", "gift_log", "friend" })
+        foreach (var t in new[] { "schema_info", "account", "player", "inventory", "room", "room_item", "currency_log", "login_log", "notice", "gift_log", "friend", "server_endpoint" })
             conn.Execute($"ALTER TABLE {t} ENABLE ROW LEVEL SECURITY;");
     }
 }

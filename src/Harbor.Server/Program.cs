@@ -52,6 +52,8 @@ builder.Services.AddSingleton<RoomManager>();
 builder.Services.AddSingleton<Dispatcher>();
 builder.Services.AddHostedService<SaveService>();
 builder.Services.AddHostedService<TcpHost>();
+// 터널 주소를 웹에 알린다 (HARBOR_PUBLIC_WS 가 있을 때만). 없으면 조용히 아무것도 하지 않는다.
+builder.Services.AddHostedService<EndpointService>();
 
 var opt = builder.Configuration.GetSection("Server").Get<ServerOptions>() ?? new ServerOptions();
 builder.WebHost.UseUrls($"http://0.0.0.0:{opt.WebPort}");

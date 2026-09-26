@@ -230,6 +230,35 @@ export const readInvUpdate = (v: unknown): InvEntry => {
 
 export const readInventory = (v: unknown): InvEntry[] => arr(arr(v)[0]).map(readInvEntry);
 
+// ---------- 상점 ----------
+export interface CatalogEntry {
+  furniId: string;
+  name: string;
+  /** "appliance" · "deco" · "postit" … 화면에서 묶는 기준. */
+  category: string;
+  price: number;
+  /** 지금은 "rupee" 뿐. 다른 값이면 살 수 없다(살 수단이 없다). */
+  currency: string;
+  wall: boolean;
+  interaction: string;
+}
+
+export const readCatalogEntry = (v: unknown): CatalogEntry => {
+  const a = arr(v);
+  return {
+    furniId: str(a[0]), name: str(a[1]), category: str(a[2]),
+    price: num(a[3]), currency: str(a[4], "rupee"),
+    wall: bool(a[5]), interaction: str(a[6]),
+  };
+};
+
+export const readCatalog = (v: unknown): CatalogEntry[] => arr(arr(v)[0]).map(readCatalogEntry);
+
+export const catalogPacket = () => ({ op: Op.C_Catalog, body: [] });
+/** 사기. 서버가 수량을 1~10 으로 자르고, 값이 0 인 정의(수확물)는 거절한다. */
+export const buyCatalogPacket = (furniId: string, qty = 1) =>
+  ({ op: Op.C_BuyCatalog, body: [furniId, qty] });
+
 // ---------- C → S (가방) ----------
 export const inventoryPacket = () => ({ op: Op.C_Inventory, body: [] });
 export const sellPacket = (furniId: string, qty = 1) => ({ op: Op.C_SellItem, body: [furniId, qty] });

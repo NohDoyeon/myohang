@@ -5,7 +5,7 @@
 // 이동(C_Move)과 캐릭터 애니메이션은 단계 3.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { GameClient, gameUrl } from "@/lib/protocol/client";
+import { GameClient, gameUrl, resolveEndpoint } from "@/lib/protocol/client";
 import { Op, opName } from "@/lib/protocol/opcode";
 import {
   chatPacket, enterRoomPacket, loginPacket, movePacket, placeItemPacket, readChat, readError,
@@ -13,10 +13,11 @@ import {
   readRoomList, readUserEnter, readUserLeave, readUserPath, readWallet, roomListPacket, sellPacket,
   friendAddPacket, friendAnswerPacket, friendListPacket, friendRemovePacket, readFriendList,
   readItemAdd, readItemRemove, readItemState, readItemUpdate, offerItemPacket, pickItemPacket,
-  postitWritePacket, useItemPacket,
-  type Friend, type InvEntry, type ItemDto, type RoomInfo, type RoomSnapshot,
+  postitWritePacket, useItemPacket, buyCatalogPacket, readCatalog,
+  type CatalogEntry, type Friend, type InvEntry, type ItemDto, type RoomInfo, type RoomSnapshot,
 } from "@/lib/protocol/packets";
 import Bag from "@/components/Bag";
+import Shop from "@/components/Shop";
 import RoomList from "@/components/RoomList";
 import Friends from "@/components/Friends";
 import Postit from "@/components/Postit";
@@ -33,6 +34,8 @@ export default function PlayPage() {
   const [login, setLogin] = useState("");
   const [token, setToken] = useState("");
   const [status, setStatus] = useState("연결 안 됨");
+  /** 게임 서버가 꺼져 있다고 확인된 상태. 주소 문제와 구분해서 안내해야 한다. */
+  const [closed, setClosed] = useState(false);
   const [snapshot, setSnapshot] = useState<RoomSnapshot | null>(null);
   const [rupee, setRupee] = useState<number | null>(null);
   const [log, setLog] = useState<LogLine[]>([]);
@@ -42,6 +45,9 @@ export default function PlayPage() {
   /** 렌더러 콜백은 처음 만들어질 때 고정된다 → 최신 가방을 보려면 ref 로 들고 있어야 한다. */
   const inventoryRef = useRef<InvEntry[]>([]);
   const [bagOpen, setBagOpen] = useState(false);
+  /** 상점 카탈로그. 로그인 직후 `S_Catalog` 로 통째로 온다 — 따로 요청하지 않아도 채워진다. */
+  const [catalog, setCatalog] = useState<CatalogEntry[]>([]);
+  const [shopOpen, setShopOpen] = useState(false);
   /** 놓으려고 고른 가구. 이게 있으면 방 클릭이 이동이 아니라 **배치**가 된다. */
   const [placing, setPlacing] = useState<string | null>(null);
   const placingRef = useRef<string | null>(null);
@@ -63,6 +69,8 @@ export default function PlayPage() {
   const canvasHost = useRef<HTMLDivElement | null>(null);
   const snapRef = useRef<RoomSnapshot | null>(null);
   const myId = useRef<number>(0);
+  /** 쓰고 나서도 남겨 두는 입장권 — 서버가 꺼져 있어 못 들어갔을 때 다시 시도하려면 필요하다. */
+  const ticketRef = useRef<{ nick: string; secret: string } | null>(null);
 
   const add = useCallback((text: string, kind: LogLine["kind"] = "info") => {
     setLog((prev) => [...prev.slice(-200), { at: new Date().toLocaleTimeString(), text, kind }]);
@@ -161,6 +169,7 @@ export default function PlayPage() {
       }
       case Op.S_RoomList: setRooms(readRoomList(body)); return;
       case Op.S_FriendList: setFriends(readFriendList(body)); return;
+      case Op.S_Catalog: setCatalog(readCatalog(body)); return;
       case Op.S_WalletUpdate: setRupee(readWallet(body).rupee); return;
       case Op.S_Inventory: {
         const list = readInventory(body).filter((i) => i.qty > 0);
@@ -234,14 +243,33 @@ export default function PlayPage() {
     return () => { dead = true; r.destroy(); renderer.current = null; };
   }, [add]);
 
-  const connect = useCallback((withLogin?: string, withToken?: string) => {
+  const connect = useCallback(async (withLogin?: string, withToken?: string) => {
     const nick = (withLogin ?? login).trim();
     const secret = (withToken ?? token).trim();
+    // 입장권은 한 번만 꺼내진다(takeTicket 이 지운다) → 다시 시도할 때 쓰려고 들고 있는다.
+    if (secret.length > 0) ticketRef.current = { nick, secret };
+
+    // **주소는 접속 직전에 묻는다.** 터널이 다시 열려 주소가 바뀌었어도 이러면 따라간다.
+    setStatus("서버 찾는 중…");
+    setClosed(false);
+    const ep = await resolveEndpoint();
+    if (ep.ws.length === 0) {
+      setStatus("게임 서버 주소를 찾지 못했어요");
+      add("주소가 없습니다 — 게임 서버가 한 번도 켜진 적이 없거나 NEXT_PUBLIC_GAME_WS 가 비었습니다", "bad");
+      return;
+    }
+    // 서버가 심장박동을 멈춘 상태. 붙어 봐야 한참 기다리다 실패하므로 솔직히 말하고 멈춘다.
+    if (ep.online === false) {
+      setStatus("지금은 닫혀 있어요");
+      setClosed(true);
+      return;
+    }
+
     const c = new GameClient({
       onFrame,
       onOpen: () => {
         setStatus("연결됨 — 로그인 중");
-        add(`연결: ${gameUrl()}`);
+        add(`연결: ${ep.ws}`);
         // 입장권으로 들어오면 닉은 서버가 서명에서 읽으므로 빈 값으로 보낸다.
         c.post(loginPacket(nick, secret));
         add("→ C_Login", "out");
@@ -250,9 +278,16 @@ export default function PlayPage() {
       onError: (m) => add(`오류: ${m}`, "bad"),
     });
     client.current = c;
-    try { c.connect(); setStatus("연결 중…"); }
+    try { c.connect(ep.ws); setStatus("연결 중…"); }
     catch (e) { setStatus(e instanceof Error ? e.message : String(e)); }
   }, [add, login, onFrame, token]);
+
+  /** 닫혀 있을 때의 [다시 시도] — 주소를 다시 묻는 것부터 시작한다. */
+  const retry = useCallback(() => {
+    // 저장된 입장권이 없으면 undefined 로 넘겨 **아래 입력칸 값**을 쓰게 한다(빈 문자열로 덮으면 안 된다).
+    const saved = ticketRef.current;
+    void connect(saved?.nick, saved?.secret);
+  }, [connect]);
 
   // 화살표 / WASD. 창이 살아 있는 동안 계속 붙어 있고, 실제 이동은 접속 중일 때만 나간다.
   useEffect(() => attachWalkControl({
@@ -295,6 +330,13 @@ export default function PlayPage() {
     // 화면을 직접 고치지 않는다 — S_InventoryUpdate·S_WalletUpdate 가 돌아오면 그때 바뀐다.
   }, [add]);
 
+  const buy = useCallback((furniId: string, qty: number) => {
+    if (!client.current?.connected) return;
+    client.current.post(buyCatalogPacket(furniId, qty));
+    add(`→ C_BuyCatalog(${furniId} ×${qty})`, "out");
+    // 팔기와 같다 — 지갑·가방은 서버가 돌려주는 것으로만 바뀐다.
+  }, [add]);
+
   const startPlacing = useCallback((furniId: string) => {
     const next = placingRef.current === furniId ? null : furniId;   // 같은 걸 다시 누르면 취소
     placingRef.current = next;
@@ -315,7 +357,7 @@ export default function PlayPage() {
   // 없으면(주소를 직접 친 경우) 아래 폼이 나온다.
   useEffect(() => {
     const t = takeTicket();
-    if (t) connect("", t);
+    if (t) void connect("", t);
     // connect 는 입력값에 의존하지만, 여기서는 **처음 한 번만** 자동 접속하면 된다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -343,7 +385,18 @@ export default function PlayPage() {
         </span>
       </header>
 
-      {!snapshot && (
+      {/* 서버가 꺼져 있을 때. 주소가 틀린 게 아니라 **주인이 안 켰다**는 뜻이므로 그렇게 말한다. */}
+      {closed && !snapshot && (
+        <section style={S.card}>
+          <p style={S.closedTitle}>지금 묘항은 닫혀 있어요</p>
+          <p style={S.hint}>
+            게임 서버가 꺼져 있습니다. 주인이 켜면 바로 들어올 수 있어요 — 잠시 뒤 다시 눌러 보세요.
+          </p>
+          <button onClick={retry} style={S.button}>다시 시도</button>
+        </section>
+      )}
+
+      {!snapshot && !closed && (
         <section style={S.card}>
           <div style={S.row}>
             <label style={S.label}>
@@ -355,8 +408,8 @@ export default function PlayPage() {
               <input type="password" value={token} onChange={(e) => setToken(e.target.value)} style={S.input} placeholder="t1.… 또는 비밀번호" />
             </label>
           </div>
-          <button onClick={() => connect()} style={S.button}>접속</button>
-          <p style={S.hint}>서버: {gameUrl() || "(NEXT_PUBLIC_GAME_WS 없음)"}</p>
+          <button onClick={() => void connect()} style={S.button}>접속</button>
+          <p style={S.hint}>서버 주소는 접속할 때 자동으로 찾습니다 {gameUrl() && `(대비책: ${gameUrl()})`}</p>
         </section>
       )}
 
@@ -401,6 +454,9 @@ export default function PlayPage() {
               친구{friendOnline > 0 && ` · ${friendOnline}명`}
               {friendPending > 0 && <b style={S.badge}>{friendPending}</b>}
             </button>
+            <button onClick={() => setShopOpen((v) => !v)} style={S.bagBtn}>
+              상점
+            </button>
             <button onClick={() => setBagOpen((v) => !v)} style={S.bagBtn}>
               가방 {inv.length > 0 && `(${inv.length})`}
             </button>
@@ -428,6 +484,15 @@ export default function PlayPage() {
               onEnter={enterRoom}
               onRefresh={refreshRooms}
               onClose={() => setRoomsOpen(false)}
+            />
+          )}
+
+          {shopOpen && (
+            <Shop
+              catalog={catalog}
+              rupee={rupee}
+              onBuy={buy}
+              onClose={() => setShopOpen(false)}
             />
           )}
 
@@ -484,6 +549,7 @@ const S: Record<string, React.CSSProperties> = {
   input: { padding: "9px 10px", borderRadius: 6, border: "1px solid #3a3733", background: "#121110", color: "inherit", fontSize: 14 },
   button: { marginTop: 12, padding: "9px 18px", borderRadius: 6, border: 0, background: "#c98c4b", color: "#1b1a18", fontWeight: 600, fontSize: 14, cursor: "pointer" },
   hint: { fontSize: 12, opacity: 0.55, margin: "6px 0 0" },
+  closedTitle: { fontSize: 15, fontWeight: 600, margin: 0 },
   canvas: { width: "100%", height: "min(62vh, 560px)", borderRadius: 10, overflow: "hidden", background: "#171614", border: "1px solid #2f2d2a" },
   caption: { fontSize: 13, opacity: 0.75, margin: "10px 0 12px", display: "flex", gap: 8, flexWrap: "wrap" },
   keys: { marginLeft: "auto", opacity: 0.7 },

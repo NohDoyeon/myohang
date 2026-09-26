@@ -39,13 +39,29 @@
          ──wss────▶ Cloudflare Tunnel ──▶ 내 PC :8080/ws
 ```
 
-**사람을 부르려면 내 PC 에서 두 개가 떠 있어야 한다** (둘 다 끄면 접속 불가):
+**사람을 부르려면 이거 하나만 띄우면 된다** (터널 + 서버를 같이 띄우고, 죽으면 다시 띄운다):
 ```
-! cd /c/Users/User/Desktop/harbor && bash tools/run-server.sh
-! "/c/Program Files (x86)/cloudflared/cloudflared.exe" tunnel --url http://localhost:8080
+! cd /c/Users/User/Desktop/harbor && bash tools/run-public.sh
 ```
-⚠ 터널 주소는 **재시작할 때마다 바뀐다** → 바뀌면 Vercel 의 `NEXT_PUBLIC_GAME_WS` 를 고치고 **재배포**해야 한다.
-고정하려면 Cloudflare 계정 + 도메인이 필요하다.
+
+⚠ 터널 주소는 여전히 재시작할 때마다 바뀌지만 **이제 사람이 나르지 않는다** (2026-09-26):
+
+```
+run-public.sh → cloudflared 출력에서 주소를 읽음
+              → HARBOR_PUBLIC_WS 로 서버에 넘김
+서버          → server_endpoint 테이블에 적음 (30초마다 심장박동)
+웹 /api/endpoint → 읽어서 브라우저에 줌
+/play         → 접속 직전에 물어보고 그 주소로 붙음
+```
+
+→ **Vercel 값을 고치거나 재배포할 일이 없다.** 첫 화면에 `● 지금 열려 있어요 / 닫혀 있어요` 가 뜨고,
+서버가 꺼져 있으면 `/play` 가 "지금 묘항은 닫혀 있어요 · [다시 시도]" 를 보여준다.
+
+`NEXT_PUBLIC_GAME_WS` 는 **대비책으로만** 남는다(DB 에 기록이 없을 때). 고정 도메인이 생기면
+`.env` 에 `HARBOR_PUBLIC_WS` 를 직접 적고 `bash tools/run-server.sh` 로 띄워도 똑같이 동작한다.
+
+남은 것: **PC 가 켜져 있어야 한다.** 24시간 열어 두려면 절전을 끄거나, 나중에 서버를 클라우드
+(Fly.io 등 .NET 8 컨테이너)로 옮긴다 — `docs/web-client-plan.md` §3 표의 마지막 줄.
 
 확인 한 줄:
 ```
@@ -64,7 +80,7 @@ Godot 의 `HudView.cs`(656줄)에 있던 것들이 통째로 다시 쓸 대상�
 | | 웹 | Godot |
 |---|---|---|
 | 로그인·방·이동·채팅 | ✅ | ✅ |
-| **가방 · 상점 · 가구 놓기** | ❌ | ✅ |
+| **가방 · 상점 · 가구 놓기** | ✅ | ✅ |
 | **방 목록 · 이사 · 외모** | ❌ | ✅ |
 | **디자인(팝플풍 HUD)** | 임시 | ✅ |
 
@@ -130,12 +146,15 @@ Godot 의 `HudView.cs`(656줄)에 있던 것들이 통째로 다시 쓸 대상�
 **④ 캣닢 화분 5단계** — `flower_pot_0_bud_16to29_OPTIONAL.png` 가 이미 있다.
 쓰려면 `data/furni/flower_pot.json` 의 `states` 를 5개로 늘리면 된다(JSON 한 장).
 
+### ✅ 상점 끝남 (2026-09-26)
+
+`[상점]` 버튼 → 분류 탭 · 가구 그림 · 수량(1~10) · 구매. 루피가 모자라면 버튼이 `루피 부족` 으로 막힌다.
+카탈로그는 로그인 직후 `S_Catalog` 로 통째로 오므로 따로 요청하지 않는다.
+가구 그림 목록은 `webapp/lib/game/furni-files.ts` 로 옮겼다 — 게임 화면(Pixi)과 상점(React)이 같은 목록을 본다.
+
 ### ▶ 다음 후보
 
-**상점** — 포스트잇을 사려면 필요하다(지금은 `/admin/grant` 로 넣어야 한다).
-서버가 로그인 직후 `S_Catalog` 를 이미 보내고 있어서 **받아서 그리기만** 하면 된다. `C_BuyCatalog` 로 산다.
-
-그 밖에: 외모 바꾸기 · 이사/방 넓히기 · 팝플풍 HUD 디자인 · Godot 클라 정리(단계 7).
+외모 바꾸기 · 이사/방 넓히기 · 팝플풍 HUD 디자인 · Godot 클라 정리(단계 7).
 
 **공개 전 보안 항목은 위쪽 "🔜 공개 전에 반드시" 를 볼 것** — 특히 로그인 속도 제한과 공용 방 잠금.
 

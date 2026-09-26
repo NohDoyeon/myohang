@@ -6,7 +6,7 @@
 // 프록시에 그대로 남는다. 입장권은 5분간 그 계정으로 입장할 수 있는 열쇠다.
 
 import { useRouter } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { TICKET_KEY } from "@/lib/ticket";
 
 export default function Home() {
@@ -15,6 +15,18 @@ export default function Home() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  /** 게임 서버가 켜져 있는지. `null` = 아직 모름 — 그때는 아무 말도 하지 않는다. */
+  const [open, setOpen] = useState<boolean | null>(null);
+
+  // 로그인부터 시키고 나서 "서버가 꺼져 있어요" 하면 허탕이다. 미리 알려 준다.
+  useEffect(() => {
+    let dead = false;
+    fetch("/api/endpoint", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d: { online?: unknown }) => { if (!dead && typeof d.online === "boolean") setOpen(d.online); })
+      .catch(() => { /* 몰라도 로그인은 막지 않는다 */ });
+    return () => { dead = true; };
+  }, []);
 
   const submit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,6 +56,12 @@ export default function Home() {
       <div style={S.card}>
         <h1 style={S.title}>묘항</h1>
         <p style={S.tagline}>고양이들이 사는 항구 마을</p>
+
+        {open !== null && (
+          <p style={{ ...S.state, color: open ? "#9ae6a0" : "#ff9b9b" }}>
+            {open ? "● 지금 열려 있어요" : "● 지금은 닫혀 있어요 — 잠시 뒤에 다시 와 주세요"}
+          </p>
+        )}
 
         <form onSubmit={submit} style={S.form}>
           <label style={S.label}>
@@ -90,7 +108,8 @@ const S: Record<string, React.CSSProperties> = {
   page: { minHeight: "100dvh", display: "grid", placeItems: "center", padding: 16 },
   card: { width: "100%", maxWidth: 360, background: "#1b1a18", border: "1px solid #2f2d2a", borderRadius: 14, padding: "28px 24px" },
   title: { fontSize: 30, margin: "0 0 4px", letterSpacing: "0.06em" },
-  tagline: { fontSize: 13, opacity: 0.6, margin: "0 0 22px" },
+  tagline: { fontSize: 13, opacity: 0.6, margin: "0 0 12px" },
+  state: { fontSize: 12.5, margin: "0 0 18px" },
   form: { display: "flex", flexDirection: "column", gap: 14 },
   label: { display: "flex", flexDirection: "column", gap: 6, fontSize: 13 },
   input: { padding: "11px 12px", borderRadius: 8, border: "1px solid #3a3733", background: "#121110", color: "inherit", fontSize: 15 },

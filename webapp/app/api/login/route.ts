@@ -24,6 +24,17 @@ const NICK_MAX = 16;
 const PW_MIN = 4;
 const PW_MAX = 64;
 
+// ── 무차별 대입 막기 ───────────────────────────────────────────────────
+// Vercel 은 요청마다 다른 인스턴스에서 돌 수 있어 **메모리 카운터는 못 쓴다.**
+// 대신 이미 쌓고 있는 `login_log` 를 센다 — 새 테이블도, 새 의존성도 필요 없다.
+//
+// 게임 서버(`C_Login`)는 자기 몫의 제한을 따로 가진다(메모리, 상주 프로세스라 그게 맞다).
+// **각자 자기 문을 잠근다** — 여기서 `source='web'` 만 세는 이유다. 섞어 세면 게임에서
+// "이미 접속 중" 으로 막힌 사람이 웹 로그인까지 잠기는 엉뚱한 일이 생긴다.
+const FAIL_WINDOW_MINUTES = 10;
+const MAX_FAILS_NICK = 8;      // 한 계정을 노리고 찍는 경우
+const MAX_FAILS_IP = 30;       // 닉을 바꿔 가며 찍는 경우 (공용 와이파이를 생각해 넉넉히)
+
 const pbkdf2 = (password: string, salt: Buffer): Promise<Buffer> =>
   new Promise((resolve, reject) =>
     crypto.pbkdf2(password, salt, ITERATIONS, HASH_BYTES, "sha256", (e, key) => (e ? reject(e) : resolve(key))));
@@ -70,6 +81,33 @@ export async function POST(request: Request) {
 
   try {
     await db.connect();
+
+    // 계정을 찾기 **전에** 막는다. 여기서 걸리면 비밀번호 검사(PBKDF2 12만 회)도 돌지 않으므로
+    // 쏟아붓는 쪽이 우리 CPU 를 태우지도 못한다.
+    const recent = await db.query(
+      `SELECT count(*) FILTER (WHERE nick_key = $1)              AS by_nick,
+              count(*) FILTER (WHERE $2 <> '' AND ip = $2)       AS by_ip
+         FROM login_log
+        WHERE ok = false AND source = 'web'
+          AND detail <> '시도 제한'
+          AND at > now() - interval '${FAIL_WINDOW_MINUTES} minutes'`,
+      [key, ip]);
+    const byNick = Number(recent.rows[0]?.by_nick ?? 0);
+    const byIp = Number(recent.rows[0]?.by_ip ?? 0);
+
+    if (byNick >= MAX_FAILS_NICK || byIp >= MAX_FAILS_IP) {
+      // 어느 쪽 한도에 걸렸는지는 말하지 않는다 — 그걸 알려 주면 탐색에 쓰인다.
+      //
+      // 이 줄은 **세지 않는다**(위 쿼리가 '시도 제한' 을 뺀다). 세면 막힌 사람이 새로고침할 때마다
+      // 스스로 잠금을 연장하게 되어 10분이 지나도 풀리지 않는다. 기록은 운영자가 보라고 남긴다.
+      await db.query(
+        "INSERT INTO login_log (nick_key, source, ok, detail, ip, at) VALUES ($1, 'web', false, '시도 제한', $2, now())",
+        [key, ip]);
+      return Response.json(
+        { ok: false, reason: `시도가 너무 많았어요. ${FAIL_WINDOW_MINUTES}분 뒤에 다시 해 주세요.` },
+        { status: 429 });
+    }
+
     const found = await db.query("SELECT nick, salt, hash FROM account WHERE nick_key = $1", [key]);
     let created = false;
 

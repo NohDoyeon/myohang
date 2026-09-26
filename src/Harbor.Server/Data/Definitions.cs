@@ -24,6 +24,15 @@ public sealed class RoomDef
     public string Family { get; set; } = "";
     /// <summary>계열 안의 단계(1부터). 이사할 때 같은 단계를 찾는 기준.</summary>
     public int Tier { get; set; }
+    /// <summary>
+    /// 공용 방을 **손님이 꾸밀 수 있는지**(놓기·줍기). 비우면 잠긴다 — 안전한 쪽이 기본이다.
+    ///
+    /// 켜 두면 아무나 광장 가구를 집어 간다. 특히 마트·게임방처럼 진열물이 있는 방은 반드시 잠겨 있어야
+    /// 방문자가 진열대를 주워 가지 않는다. 모래밭처럼 쓰고 싶은 방에만 `"openEdit": true` 를 넣는다.
+    ///
+    /// 개인 방과는 무관하다 — 거긴 언제나 주인만 꾸민다.
+    /// </summary>
+    public bool OpenEdit { get; set; }
 }
 public sealed class FurniPlacement
 {

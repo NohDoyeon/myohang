@@ -406,8 +406,15 @@ public sealed class RoomInstance
         Broadcast(Opcode.S_UserAction, new S_UserAction { UserId = s.UserId, Action = name, Dir = u.Dir });
     }
 
-    /// <summary>공용 방은 누구나, 개인 방은 주인만 꾸밀 수 있다.</summary>
-    private bool CanEdit(Session s) => Def.Kind == "public" || (OwnerId != 0 && OwnerId == s.UserId);
+    /// <summary>
+    /// 꾸미기(놓기·줍기) 권한. 개인 방은 주인만.
+    ///
+    /// **공용 방은 기본이 잠김이다.** 예전에는 `Kind == "public"` 이면 무조건 true 라 아무나 광장 가구를
+    /// 집어 갈 수 있었다. 모래밭처럼 열어 둘 방만 템플릿에 `"openEdit": true` 를 넣는다.
+    /// (포스트잇은 이 권한과 무관하게 붙는다 — `OnPlace` 가 따로 통과시킨다.)
+    /// </summary>
+    private bool CanEdit(Session s) =>
+        Def.Kind == "public" ? Def.OpenEdit : (OwnerId != 0 && OwnerId == s.UserId);
 
     private void OnPlace(Session s, string furniId, int x, int y, byte dir, byte wallU, byte wallV, sbyte tilt)
     {
@@ -469,8 +476,34 @@ public sealed class RoomInstance
         if (item.Fsm is null) return;
         var t = item.Fsm.Apply(item.State, "use");
         if (t is null) return;
+
+        // **수확은 주인만.** 남의 방 캣닢 화분을 눌러 캣닢 잎을 가져가면 그대로 팔 수 있었다
+        // (30장 묶음 1,500루피) — 남의 방을 도는 것만으로 돈이 생기는 구멍이었다.
+        //
+        // 막는 것은 **물건이 생기는 전이**뿐이다. 의자에 앉고 조명을 켜는 것은 그대로 둔다 —
+        // 손해가 없고, 남의 방에서 같이 노는 재미가 거기 있다.
+        // 공용 방은 제외한다: 댄스홀의 무한 자판기는 누구나 쓰는 것이 설계다.
+        if (Def.Kind != "public" && GivesItem(t) && !IsOwner(s))
+        {
+            s.Notice(OwnerNick.Length > 0
+                ? $"{OwnerNick}님의 것이에요. 수확은 주인만 할 수 있어요."
+                : "주인만 수확할 수 있어요.");
+            return;
+        }
+
         Transition(item, t, s);
     }
+
+    /// <summary>가방에 물건이 들어오는 전이인가. 이것만 주인으로 제한한다.</summary>
+    private static bool GivesItem(FsmTransition t) =>
+        t.Effect is not null && t.Effect.StartsWith("give_item:", StringComparison.Ordinal);
+
+    /// <summary>
+    /// 이 방의 주인인가. **닉으로 본다** — `OwnerId` 는 접속할 때 채워지므로 주인이 없는 동안에는
+    /// 믿을 수 없다(`OnHarvestPlanter` 도 같은 이유로 닉을 쓴다).
+    /// </summary>
+    private bool IsOwner(Session s) =>
+        OwnerNick.Length > 0 && string.Equals(OwnerNick, s.Nick, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// 남의 방 화분에 캣닢을 꽂는다. **혼자서는 못 채운다** — 그게 이 기능의 전부다.

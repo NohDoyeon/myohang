@@ -157,6 +157,83 @@ public class LotteryTests
 }
 
 /// <summary>
+/// 로그인 시도 제한. **시계를 넘길 수 있게 만든 덕분에** 10분을 기다리지 않고 풀리는 것까지 시험한다.
+/// </summary>
+public class LoginThrottleTests
+{
+    private static readonly DateTime T0 = new(2026, 9, 26, 12, 0, 0, DateTimeKind.Utc);
+    private static LoginThrottle Make() => new(maxFails: 3, window: TimeSpan.FromMinutes(10));
+
+    [Fact]
+    public void Blocks_AfterMaxFails()
+    {
+        var t = Make();
+        Assert.False(t.IsBlocked("doyeon", T0));
+        for (int i = 0; i < 3; i++) t.Fail("doyeon", T0);
+        Assert.True(t.IsBlocked("doyeon", T0));
+    }
+
+    [Fact]
+    public void Fail_ReportsRemainingTries()
+    {
+        var t = Make();
+        Assert.Equal(2, t.Fail("doyeon", T0));
+        Assert.Equal(1, t.Fail("doyeon", T0));
+        Assert.Equal(0, t.Fail("doyeon", T0));
+        Assert.Equal(0, t.Fail("doyeon", T0));      // 더 세도 음수로 내려가지 않는다
+    }
+
+    [Fact]
+    public void OtherKeys_AreNotAffected()
+    {
+        var t = Make();
+        for (int i = 0; i < 3; i++) t.Fail("doyeon", T0);
+        Assert.True(t.IsBlocked("doyeon", T0));
+        Assert.False(t.IsBlocked("someone-else", T0));
+    }
+
+    [Fact]
+    public void Unblocks_AfterWindowPasses()
+    {
+        var t = Make();
+        for (int i = 0; i < 3; i++) t.Fail("doyeon", T0);
+        Assert.True(t.IsBlocked("doyeon", T0.AddMinutes(9)));
+        Assert.False(t.IsBlocked("doyeon", T0.AddMinutes(10)));
+    }
+
+    [Fact]
+    public void Success_ClearsHistory()
+    {
+        // 한 번 틀렸다가 맞힌 사람이 남은 횟수 때문에 막히면 안 된다.
+        var t = Make();
+        t.Fail("doyeon", T0);
+        t.Fail("doyeon", T0);
+        t.Succeed("doyeon");
+        Assert.Equal(2, t.Fail("doyeon", T0));
+        Assert.False(t.IsBlocked("doyeon", T0));
+    }
+
+    [Fact]
+    public void Remaining_CountsDownFromOldestFail()
+    {
+        var t = Make();
+        for (int i = 0; i < 3; i++) t.Fail("doyeon", T0);
+        Assert.Equal(TimeSpan.FromMinutes(10), t.Remaining("doyeon", T0));
+        Assert.Equal(TimeSpan.FromMinutes(4), t.Remaining("doyeon", T0.AddMinutes(6)));
+        Assert.Equal(TimeSpan.Zero, t.Remaining("doyeon", T0.AddMinutes(10)));
+    }
+
+    [Fact]
+    public void Nick_IsCaseInsensitive()
+    {
+        // 닉은 대소문자를 무시한다(Db.Key 와 같은 규칙). 안 그러면 DoYeon 으로 우회된다.
+        var t = Make();
+        for (int i = 0; i < 3; i++) t.Fail("doyeon", T0);
+        Assert.True(t.IsBlocked("DoYeon", T0));
+    }
+}
+
+/// <summary>
 /// data/rooms/dancehall.json 의 기본 배치가 기하학적으로 맞는지 지킨다.
 /// 서버 Seed 는 어긋난 벽 위치를 버리지 않고 보정만 하므로(사용자 가구 유실 방지), 템플릿 실수는 여기서 잡는다.
 /// 방 JSON 을 고치면 이 표도 같이 고쳐야 한다.

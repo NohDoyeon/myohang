@@ -20,6 +20,11 @@ public sealed class Session : IAsyncDisposable
     public string Nick { get; set; } = "";
     public RoomInstance? Room { get; set; }
     public long HomeRoomId { get; set; }
+    /// <summary>
+    /// 이 연결에서 로그인에 실패한 횟수. 닉별 제한만으로는 **닉을 바꿔 가며 찍는 것**을 못 막아서,
+    /// 핸들러가 이 수를 세다가 상한을 넘으면 연결을 끊는다(다시 붙는 비용을 물린다).
+    /// </summary>
+    public int LoginFails { get; set; }
 
     private readonly ITransport _transport;
     private readonly Channel<byte[]> _outbox = Channel.CreateUnbounded<byte[]>(new() { SingleReader = true });

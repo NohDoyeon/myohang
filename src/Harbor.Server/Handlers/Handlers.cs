@@ -12,6 +12,16 @@ public static class HandlerRegistration
 {
     private static long _nextUserId;
 
+    /// <summary>
+    /// 닉별 로그인 시도 제한. **IP 로는 못 센다** — 브라우저는 전부 cloudflared 를 거쳐 오므로
+    /// 서버 눈에는 다 같은 127.0.0.1 이다. IP 로 잠그면 한 명 때문에 전원이 막힌다.
+    /// 그래서 여기서는 **닉**으로 세고, 한 연결이 닉을 바꿔 가며 찍는 것은 아래 연결별 상한이 막는다.
+    /// </summary>
+    private static readonly LoginThrottle Throttle = new(maxFails: 8, window: TimeSpan.FromMinutes(10));
+
+    /// <summary>한 연결에서 허용하는 로그인 실패 횟수. 넘으면 끊는다 — 다시 붙는 비용을 물린다.</summary>
+    private const int MaxFailsPerConnection = 5;
+
     public static void Register(Dispatcher d, RoomManager rooms, DefinitionStore defs, EconomyOptions eco, SaveStore save,
                                 OnlineUsers online, Accounts accounts, TicketStore tickets, ServerOptions srv,
                                 Friends friends)
@@ -28,15 +38,31 @@ public static class HandlerRegistration
             if (tickets.Redeem(secret) is { } ticketNick) { nick = ticketNick; byTicket = true; }   // 웹 로그인으로 이미 인증됨
             else
             {
+                // ----- 무차별 대입 막기 -----
+                // 입장권으로 들어오는 길은 세지 않는다. 그건 웹이 이미 확인한 것이고, 서명이 틀리면
+                // Redeem 이 애초에 닉을 돌려주지 않는다(여기까지 와서 비밀번호로 재시도한다).
+                var now = DateTime.UtcNow;
+                if (Throttle.IsBlocked(nick, now))
+                {
+                    int mins = (int)Math.Ceiling(Throttle.Remaining(nick, now).TotalMinutes);
+                    save.LogLogin(nick, "game", false, "시도 제한");
+                    s.Send(Opcode.S_LoginResult, new S_LoginResult { Ok = false, Reason = $"시도가 너무 많았어요. {mins}분 뒤에 다시 해 주세요." });
+                    return Task.CompletedTask;
+                }
+
                 // 원칙은 "가입은 웹에서만"(account 테이블의 주인이 하나여야 한다).
                 // AllowGameSignup 은 테스트 편의용 예외 — 공개 운영에서는 끈다.
                 var r = accounts.Authenticate(nick, secret, out _, allowCreate: srv.AllowGameSignup);
                 if (r != Accounts.Result.Ok)
                 {
+                    Throttle.Fail(nick, now);
                     save.LogLogin(nick, "game", false, Accounts.Message(r));
                     s.Send(Opcode.S_LoginResult, new S_LoginResult { Ok = false, Reason = Accounts.Message(r) });
+                    // 한 연결로 닉을 바꿔 가며 찍는 것은 닉별 제한으로 못 막는다 → 연결을 끊어 비용을 물린다.
+                    if (++s.LoginFails >= MaxFailsPerConnection) s.Close();
                     return Task.CompletedTask;
                 }
+                Throttle.Succeed(nick);
             }
 
             if (!online.TryClaim(nick, s))

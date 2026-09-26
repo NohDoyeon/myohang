@@ -18,6 +18,7 @@ import {
 } from "@/lib/protocol/packets";
 import Bag from "@/components/Bag";
 import Shop from "@/components/Shop";
+import Lobby from "@/components/Lobby";
 import RoomList from "@/components/RoomList";
 import Friends from "@/components/Friends";
 import Postit from "@/components/Postit";
@@ -53,6 +54,8 @@ export default function PlayPage() {
   const placingRef = useRef<string | null>(null);
   const [rooms, setRooms] = useState<RoomInfo[]>([]);
   const [roomsOpen, setRoomsOpen] = useState(false);
+  /** 지도. 방 목록과 겹치지만 대신하지 않는다 — 목록은 정확하고, 지도는 갈 곳이 눈에 보인다. */
+  const [lobbyOpen, setLobbyOpen] = useState(false);
   const [myNick, setMyNick] = useState("");
   const [friends, setFriends] = useState<Friend[]>([]);
   const [friendsOpen, setFriendsOpen] = useState(false);
@@ -447,6 +450,9 @@ export default function PlayPage() {
 
           <p style={S.caption}>
             <strong>{snapshot.room.name}</strong> · 가구 {snapshot.items.length}
+            <button onClick={() => { setLobbyOpen((v) => !v); refreshRooms(); }} style={S.bagBtn}>
+              지도
+            </button>
             <button onClick={() => { setRoomsOpen((v) => !v); refreshRooms(); }} style={S.bagBtn}>
               방 목록
             </button>
@@ -473,6 +479,16 @@ export default function PlayPage() {
               onRemove={(n) => post(friendRemovePacket(n))}
               onVisit={visitFriend}
               onClose={() => setFriendsOpen(false)}
+            />
+          )}
+
+          {lobbyOpen && (
+            <Lobby
+              rooms={rooms}
+              currentId={snapshot.room.id}
+              myNick={myNick}
+              onEnter={(id) => { enterRoom(id); setLobbyOpen(false); }}
+              onClose={() => setLobbyOpen(false)}
             />
           )}
 

@@ -49,6 +49,8 @@ export default function PlayPage() {
   /** 상점 카탈로그. 로그인 직후 `S_Catalog` 로 통째로 온다 — 따로 요청하지 않아도 채워진다. */
   const [catalog, setCatalog] = useState<CatalogEntry[]>([]);
   const [shopOpen, setShopOpen] = useState(false);
+  /** 진열대를 눌러서 열었을 때 그 진열대가 파는 상품. null 이면 상점 전체. */
+  const [shopFocus, setShopFocus] = useState<string | null>(null);
   /** 놓으려고 고른 가구. 이게 있으면 방 클릭이 이동이 아니라 **배치**가 된다. */
   const [placing, setPlacing] = useState<string | null>(null);
   const placingRef = useRef<string | null>(null);
@@ -228,6 +230,13 @@ export default function PlayPage() {
 
         // 포스트잇은 창을 연다(읽기·쓰기). 나머지는 서버에 맡긴다.
         if (it.interaction === "postit") { setOpenItemId(itemId); return; }
+        // 마트의 진열대·계산대. **서버에 물어볼 것이 없다** — 카탈로그는 로그인 때 이미 받았고,
+        // 무엇을 파는지는 가구의 `extra` 에 실려 왔다. 사는 것만 C_BuyCatalog 로 나간다.
+        if (it.interaction === "shop") {
+          setShopFocus(it.extra && it.extra.length > 0 ? it.extra : null);
+          setShopOpen(true);
+          return;
+        }
         // 화분에 캣닢 꽂기 — 남의 방에서도 되는 두 가지 중 하나다.
         if (it.interaction === "planter") { client.current.post(offerItemPacket(itemId)); return; }
         client.current.post(useItemPacket(itemId));
@@ -460,7 +469,8 @@ export default function PlayPage() {
               친구{friendOnline > 0 && ` · ${friendOnline}명`}
               {friendPending > 0 && <b style={S.badge}>{friendPending}</b>}
             </button>
-            <button onClick={() => setShopOpen((v) => !v)} style={S.bagBtn}>
+            {/* HUD 의 상점은 **언제나 전체**다. 진열대에서 연 좁은 화면이 남아 있으면 헷갈린다. */}
+            <button onClick={() => { setShopFocus(null); setShopOpen((v) => !v); }} style={S.bagBtn}>
               상점
             </button>
             <button onClick={() => setBagOpen((v) => !v)} style={S.bagBtn}>
@@ -508,6 +518,8 @@ export default function PlayPage() {
               catalog={catalog}
               rupee={rupee}
               onBuy={buy}
+              focus={shopFocus}
+              onClearFocus={() => setShopFocus(null)}
               onClose={() => setShopOpen(false)}
             />
           )}

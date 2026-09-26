@@ -1,0 +1,43 @@
+{
+  "roomId": "mart",
+  "name": "마트",
+  "kind": "public",
+  "heightmap": [
+    "xxxxxxxxxxxxxxxx",
+    "x00000000000000x",
+    "x00000000000000x",
+    "x00000000000000x",
+    "x00000000000000x",
+    "x00000000000000x",
+    "x00000000000000x",
+    "x00000000000000x",
+    "xxxxxxx00xxxxxxx"
+  ],
+  "door": { "x": 7, "y": 8, "dir": 0 },
+  "wall": { "style": "wall_wood_shop", "height": 3 },
+  "floor": { "style": "floor_tile" },
+  "spawn": [ { "x": 7, "y": 7, "dir": 0 }, { "x": 8, "y": 7, "dir": 0 } ],
+  "maxUsers": 60,
+  "furni": [
+    { "furniId": "shop_shelf", "x": 2,  "y": 1, "dir": 4, "extra": "postit_yellow" },
+    { "furniId": "shop_shelf", "x": 3,  "y": 1, "dir": 4, "extra": "postit_pink" },
+    { "furniId": "shop_shelf", "x": 4,  "y": 1, "dir": 4, "extra": "postit_mint" },
+    { "furniId": "shop_shelf", "x": 6,  "y": 1, "dir": 4, "extra": "gift_planter" },
+    { "furniId": "shop_shelf", "x": 7,  "y": 1, "dir": 4, "extra": "flower_pot" },
+    { "furniId": "shop_shelf", "x": 9,  "y": 1, "dir": 4, "extra": "lamp_floor" },
+    { "furniId": "shop_shelf", "x": 10, "y": 1, "dir": 4, "extra": "rug_round" },
+    { "furniId": "shop_shelf", "x": 12, "y": 1, "dir": 4, "extra": "tv_crt" },
+
+    { "furniId": "shop_shelf", "x": 1, "y": 3, "dir": 2, "extra": "chair_wood" },
+    { "furniId": "shop_shelf", "x": 1, "y": 4, "dir": 2, "extra": "table_round" },
+    { "furniId": "shop_shelf", "x": 1, "y": 5, "dir": 2, "extra": "bookshelf" },
+
+    { "furniId": "shop_counter", "x": 12, "y": 6, "dir": 2 },
+
+    { "furniId": "plant_pot",    "x": 14, "y": 7, "dir": 0 },
+    { "furniId": "lamp_floor",   "x": 1,  "y": 7, "dir": 0 },
+    { "furniId": "window_round", "x": 5,  "y": 1, "dir": 4, "wallU": 0, "wallV": 1 },
+    { "furniId": "clock_wall",   "x": 1,  "y": 1, "dir": 2, "wallU": 0, "wallV": 2 }
+  ],
+  "_note": "기획전 = 이 파일의 `extra` 목록. 진열대를 클릭하면 그 상품만 보이는 상점 창이 열리고, 계산대(extra 없음)는 전체 상점이 열린다. openEdit 을 넣지 않았으므로 **잠긴 방**이다 — 안 그러면 방문자가 진열대를 주워 간다."
+}

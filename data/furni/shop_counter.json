@@ -1,0 +1,14 @@
+{
+  "furniId": "shop_counter",
+  "displayName": "계산대",
+  "category": "deco",
+  "footprint": { "w": 1, "h": 1 },
+  "height": 1.0,
+  "flags": ["solid"],
+  "rotations": [0, 2, 4, 6],
+  "sprite": "furni/shop/counter",
+  "states": ["default"],
+  "interaction": { "type": "shop" },
+  "price": { "currency": "rupee", "amount": 0 },
+  "_note": "점원 고양이가 선 계산대. 진열대와 같은 `shop` 이지만 **extra 가 없어 상점 전체**가 열린다. 진짜 NPC 엔티티를 만들 필요가 없는 이유가 이것이다(경로·동기화가 붙어 규모가 커진다)."
+}

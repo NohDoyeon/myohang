@@ -86,6 +86,7 @@ public sealed class RoomManager
         {
             FurniId = f.FurniId, X = (short)f.X, Y = (short)f.Y, Dir = (byte)f.Dir,
             WallU = (byte)f.WallU, WallV = (byte)f.WallV, Tilt = (sbyte)f.Tilt,
+            Extra = f.Extra,          // 진열대가 파는 상품 — 이걸 빠뜨리면 마트가 빈 진열대만 늘어선다
         }).ToList();
 
     /// <summary>저장된 개인 방을 전부 되살린다 — 주인이 접속하지 않아도 방 목록에 보이고 놀러 갈 수 있다.</summary>

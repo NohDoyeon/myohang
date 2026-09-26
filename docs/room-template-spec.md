@@ -84,7 +84,11 @@
 - `furni`(선택): 저장본이 없을 때만 놓이는 기본 가구.
   `[{ "furniId": "lamp_floor", "x": 2, "y": 2, "dir": 2, "wallU": 0, "wallV": 0, "tilt": 0 }]`
   바닥 가구는 걸을 수 있는 칸에, 벽걸이는 **실제로 벽이 있는 칸**에 `dir` 4(북쪽 벽) 또는 2(서쪽 벽), `wallU` 0~1, `wallV` 0~(wall.height-1).
-  쓸 수 있는 furniId: `chair_wood` `table_round` `rug_round` `plant_pot` `flower_pot` `lamp_floor` `tv_crt` `bookshelf` `fridge_red` `cola_machine` / 벽: `window_round` `frame_photo` `clock_wall` `aircon_wall` `postit_yellow`.
+  쓸 수 있는 furniId: `chair_wood` `table_round` `rug_round` `plant_pot` `flower_pot` `lamp_floor` `tv_crt` `bookshelf` `fridge_red` `cola_machine` `shop_shelf` `shop_counter` / 벽: `window_round` `frame_photo` `clock_wall` `aircon_wall` `postit_yellow`.
+- `openEdit`(선택, 공용 방만): `true` 면 손님이 가구를 놓고 주울 수 있다. **비우면 잠긴다** —
+  진열물이 있는 방(마트·게임방)은 반드시 비워 둔다. 안 그러면 방문자가 진열대를 주워 간다.
+- `furni[].extra`(선택): **그 자리에만** 붙는 값. `shop_shelf` 는 여기에 파는 상품의 `furniId` 를 적는다.
+  진열대 정의는 하나뿐이고 상품만 갈아 끼우는 구조다 → **기획전 교체 = 이 줄만 수정.**
 
 ### 8. 자가 검사 (출력 전에 직접 확인할 것)
 

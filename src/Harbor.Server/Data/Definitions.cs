@@ -43,6 +43,13 @@ public sealed class FurniPlacement
     public int WallU { get; set; }
     public int WallV { get; set; }
     public int Tilt { get; set; }
+    /// <summary>
+    /// 이 **자리에만** 붙는 값. 진열대가 무엇을 파는지(`furniId`)가 여기 들어간다.
+    ///
+    /// 덕분에 `shop_shelf` 정의 **하나로** 온갖 상품을 진열할 수 있다 — 상품마다 가구를 만들지 않는다.
+    /// 기획전 교체가 "방 JSON 의 이 줄들만 고치기"로 끝나는 것도 이 때문이다.
+    /// </summary>
+    public string? Extra { get; set; }
 }
 public sealed class TileRef { public int X { get; set; } public int Y { get; set; } public int Dir { get; set; } }
 public sealed class StyleRef { public string Style { get; set; } = ""; public int Height { get; set; } = 3; }

@@ -1,0 +1,14 @@
+{
+  "furniId": "shop_shelf",
+  "displayName": "진열대",
+  "category": "deco",
+  "footprint": { "w": 1, "h": 1 },
+  "height": 1.2,
+  "flags": ["solid"],
+  "rotations": [0, 2, 4, 6],
+  "sprite": "furni/shop/shelf",
+  "states": ["default"],
+  "interaction": { "type": "shop" },
+  "price": { "currency": "rupee", "amount": 0 },
+  "_note": "마트의 진열대. **무엇을 파는지는 방 템플릿의 `extra`(furniId)에 적는다** — 상품마다 가구를 만들지 않는다. 기획전 교체 = 방 JSON 의 extra 만 바꾸기. price 0 이라 상점 목록에는 안 뜬다(붙박이지 파는 물건이 아니다)."
+}

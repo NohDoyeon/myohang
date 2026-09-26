@@ -18,6 +18,10 @@ export interface ShopProps {
   rupee: number | null;
   onBuy: (furniId: string, qty: number) => void;
   onClose: () => void;
+  /** 진열대를 눌러서 열렸을 때의 그 상품(furniId). null 이면 상점 전체. */
+  focus?: string | null;
+  /** 진열대 상품만 보는 상태를 푼다. */
+  onClearFocus?: () => void;
 }
 
 /** Godot 의 `HudView.CategoryName` 과 같은 말을 쓴다 — 두 클라가 다른 이름을 쓰면 안 된다. */
@@ -36,20 +40,27 @@ const CATEGORY: Record<string, string> = {
 /** 서버가 한 번에 파는 최대 수량 (`C_BuyCatalog` 가 1~10 으로 자른다). */
 const QTY_MAX = 10;
 
-export default function Shop({ catalog, rupee, onBuy, onClose }: ShopProps) {
+export default function Shop({ catalog, rupee, onBuy, onClose, focus = null, onClearFocus }: ShopProps) {
   const [only, setOnly] = useState<string | null>(null);
+
+  /**
+   * 진열대가 가리키는 상품이 **정말 팔리는지**는 카탈로그가 정한다.
+   * 방 JSON 에 오타가 있거나 값이 0 인 것을 적어 두면 여기서 걸린다 — 빈 창이 뜨는 대신 안내가 나간다.
+   */
+  const focused = focus === null ? null : catalog.find((c) => c.furniId === focus) ?? null;
 
   // 카탈로그는 서버가 이미 분류·가격순으로 정렬해 보낸다. 그 순서를 지키면서 묶기만 한다.
   const groups = useMemo(() => {
     const out: { category: string; items: CatalogEntry[] }[] = [];
     for (const c of catalog) {
-      if (only !== null && c.category !== only) continue;
+      if (focus !== null && c.furniId !== focus) continue;
+      if (focus === null && only !== null && c.category !== only) continue;
       const last = out[out.length - 1];
       if (last && last.category === c.category) last.items.push(c);
       else out.push({ category: c.category, items: [c] });
     }
     return out;
-  }, [catalog, only]);
+  }, [catalog, only, focus]);
 
   const categories = useMemo(
     () => [...new Set(catalog.map((c) => c.category))],
@@ -59,7 +70,7 @@ export default function Shop({ catalog, rupee, onBuy, onClose }: ShopProps) {
   return (
     <section style={{ ...panel, marginTop: 10 }}>
       <header style={st.head}>
-        <strong style={st.title}>상점</strong>
+        <strong style={st.title}>{focus === null ? "상점" : "진열대"}</strong>
         <span style={st.rupee}>{rupee === null ? "" : `${rupee.toLocaleString()} 루피`}</span>
         <button onClick={onClose} style={st.close} aria-label="상점 닫기">✕</button>
       </header>
@@ -69,18 +80,31 @@ export default function Shop({ catalog, rupee, onBuy, onClose }: ShopProps) {
         포스트잇은 <b>다른 사람 방 벽에도</b> 붙일 수 있어요.
       </p>
 
+      {/* 진열대에서 열었는데 그 상품이 카탈로그에 없다 — 방 JSON 의 `extra` 오타이거나 값이 0 인 물건이다. */}
+      {focus !== null && focused === null && (
+        <p style={st.empty}>이 진열대의 상품은 지금 팔지 않아요.</p>
+      )}
+
+      {focus !== null && onClearFocus && (
+        <p style={st.hint}>
+          <button onClick={onClearFocus} style={st.tab}>상점 전체 보기</button>
+        </p>
+      )}
+
       {catalog.length === 0 ? (
         <p style={st.empty}>카탈로그를 불러오는 중…</p>
       ) : (
         <>
-          <div style={st.tabs}>
-            <button onClick={() => setOnly(null)} style={only === null ? st.tabOn : st.tab}>전체</button>
-            {categories.map((cat) => (
-              <button key={cat} onClick={() => setOnly(cat)} style={only === cat ? st.tabOn : st.tab}>
-                {CATEGORY[cat] ?? cat}
-              </button>
-            ))}
-          </div>
+          {focus === null && (
+            <div style={st.tabs}>
+              <button onClick={() => setOnly(null)} style={only === null ? st.tabOn : st.tab}>전체</button>
+              {categories.map((cat) => (
+                <button key={cat} onClick={() => setOnly(cat)} style={only === cat ? st.tabOn : st.tab}>
+                  {CATEGORY[cat] ?? cat}
+                </button>
+              ))}
+            </div>
+          )}
 
           <div style={st.scroll}>
             {groups.map((g) => (
